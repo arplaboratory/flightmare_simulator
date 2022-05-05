@@ -28,9 +28,14 @@ sudo apt-get install terminator
 Controls just like ARPL_Quadrotor_control
 
 ## INPUT/Output Topic
-*The quadrotor is updated based on the /quadrotor/odom
-*The Front Camera Images are published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/compressed
-*Camera Matrix Info is published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/camera_info <- Development in progress
+### Input Topic
+* The quadrotor is updated based on the /quadrotor/odom
+### Output Topic
+* The Front Camera Images are published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/compressed
+* Camera Matrix Info is published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/camera_info <- Development in progress
 
-##Future Options
+## Files of Note
+This is just a modified version of the simulator interface. quadrotor_simulator_base.hpp has all the Unity Mirroring and object spawning
+
+## Future Options
 Ability to control Apriltag spawn in .yaml file. 
