@@ -3,10 +3,10 @@
 This is an interface that connects ARPL Quadrotor Simulator with the Flightmare Interface
 
 ## Prerequisites
-Install ARPL_QUadrotor_control https://github.com/arplaboratory/arpl_quadrotor_control
-Install Flightlib_ros: https://flightmare.readthedocs.io/en/latest/getting_started/quick_start.html#install-with-ros
-Download the ARPL Specific Ubuntu Repo: https://drive.google.com/drive/folders/1lf9O3XdgDuCrQljxSLuY83v6tVaWvWkQ?usp=sharing
-Terminator - 
+*Install ARPL_QUadrotor_control https://github.com/arplaboratory/arpl_quadrotor_control
+*Install Flightlib_ros: https://flightmare.readthedocs.io/en/latest/getting_started/quick_start.html#install-with-ros
+*Download the ARPL Specific Ubuntu Repo: https://drive.google.com/drive/folders/1lf9O3XdgDuCrQljxSLuY83v6tVaWvWkQ?usp=sharing
+*Terminator - 
 
 ```
 sudo add-apt-repository ppa:gnome-terminator
@@ -17,9 +17,9 @@ sudo apt-get install terminator
 ```
 
 ## Installation
-After install the pre-requisites and terminator.
-Open Terminator 
-catkin build flightmare_simulator
+*1.After install the pre-requisites and terminator.
+*2.Open Terminator 
+*3.catkin build flightmare_simulator
 
 
 ## Running
@@ -28,9 +28,9 @@ catkin build flightmare_simulator
 Controls just like ARPL_Quadrotor_control
 
 ## INPUT/Output Topic
-The quadrotor is updated based on the /quadrotor/odom
-The Front Camera Images are published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/compressed
-Camera Matrix Info is published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/camera_info <- Development in progress
+*The quadrotor is updated based on the /quadrotor/odom
+*The Front Camera Images are published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/compressed
+*Camera Matrix Info is published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/camera_info <- Development in progress
 
 ##Future Options
 Ability to control Apriltag spawn in .yaml file. 
