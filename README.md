@@ -27,7 +27,7 @@ sudo apt-get install terminator
 2. run  roslaunch flightmare_simulator flightmare_sim.launch 
 Controls just like ARPL_Quadrotor_control
 
-## INPUT/Output Topic
+## Input/Output Topic
 ### Input Topic
 * The quadrotor is updated based on the /quadrotor/odom
 ### Output Topic
