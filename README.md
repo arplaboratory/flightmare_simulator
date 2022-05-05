@@ -17,9 +17,9 @@ sudo apt-get install terminator
 ```
 
 ## Installation
-* 1.After install the pre-requisites and terminator.
-* 2.Open Terminator 
-* 3.catkin build flightmare_simulator
+1. After install the pre-requisites and terminator.
+2. Open Terminator 
+3. catkin build flightmare_simulator
 
 
 ## Running
