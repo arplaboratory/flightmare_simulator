@@ -1,0 +1,51 @@
+<launch>
+  <arg name="model" default="quadrotor"/>
+  <arg name="sim" default="1"/>
+  <arg name="vicon" default="1"/>
+  <arg name="vicon_fps" default="100"/>
+  <arg name="slow_baud_rate" default="true"/>
+  <arg name="mass" default="0.5"/>
+
+
+  <!-- Vicon odometry -->
+  <group if="$(arg vicon)">
+    <include file="$(find vicon)/launch/vicon.launch" unless="$(arg sim)"/>
+
+    <include file="$(find vicon_odom)/launch/vicon_odom.launch" unless="$(arg sim)">
+      <arg name="model" value="$(arg model)" />
+      <arg name="vicon_fps" value="$(arg vicon_fps)"/>
+    </include>
+  </group>
+
+
+
+  <group ns="$(arg model)">
+    <param name="mass" value="$(arg mass)"/>
+
+    <!-- Simulator -->
+    <include file="$(find flightmare_simulator)/launch/sim.launch" if="$(arg sim)">
+      <arg name="name" value="$(arg model)"/>
+      <arg name="type" value="hummingbird"/>
+      <arg name="mass" value="$(arg mass)"/>
+      <arg name="color/r" value="0.0"/>
+      <arg name="color/g" value="0.0"/>
+      <arg name="color/b" value="1.0"/>
+      <arg name="color/a" value="0.7"/>
+    </include>
+
+    <!-- Control stuff -->
+    <include file="$(find mav_launch)/launch/simulator/control.launch">
+      <arg name="nodelet_manager_name" value="nodelet_manager"/>
+      <arg name="mass" value="$(arg mass)"/>
+    </include>
+
+    <!-- MAV Manager -->
+    <include file="$(find mav_launch)/launch/simulator/manager.launch"/>
+  </group>
+
+  <!-- Rviz Visualization -->
+  <!--include file="$(find mav_launch)/launch/simulator/rviz.launch"/-->
+
+  <!-- Waypoing Navigation -->
+  <!-- include file="$(find mav_launch)/launch/waypoint_navigation_plugin/waypoint_rviz.launch"/-->
+</launch>
