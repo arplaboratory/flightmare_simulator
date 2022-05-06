@@ -5,7 +5,7 @@ This is an interface that connects ARPL Quadrotor Simulator with the Flightmare 
 ## Prerequisites
 * Install ARPL_Quadrotor_control https://github.com/arplaboratory/arpl_quadrotor_control
 * Install Flightlib_ros: https://flightmare.readthedocs.io/en/latest/getting_started/quick_start.html#install-with-ros
-* Download the ARPL Specific Unity build Repo (Note: we have our special version Unity game builds are too big for Github): https://drive.google.com/drive/folders/1lf9O3XdgDuCrQljxSLuY83v6tVaWvWkQ?usp=sharing
+* Download the ARPL Specific Unity build Repo (Note: we have our special version Unity game builds are too big for Github): https://drive.google.com/drive/folders/1FDi-WKbucDa3Mkw_01pWaYOdj9w_VgQK?usp=sharing
 * Terminator - 
 
 ```
