@@ -31,6 +31,7 @@ class QuadrotorSimulatorBase
       const geometry_msgs::Vector3Stamped::ConstPtr &f_ext);
   void extern_moment_callback(
       const geometry_msgs::Vector3Stamped::ConstPtr &m_ext);
+  void addTag(int id, Eigen::Vector3f pose, flightlib::Quaternion quat);
 
  protected:
 
@@ -194,16 +195,26 @@ rgb_camera_(std::make_unique<flightlib::RGBCamera>())
 
   bool unity_ready_ = unity_bridge_ptr_->connectUnity(flightlib::UnityScene::WAREHOUSE);
   // Initialize Unity bridge
-  // Add gates
-  std::shared_ptr<flightlib::StaticObject> gate2 =  std::make_shared<flightlib::StaticObject>("tag2", "AprilTag1");
-  gate2->setPosition(Eigen::Vector3f(5, 0, 2.5));
-  gate2->setSize(Eigen::Vector3f(0.1, 0.1, 0.1));
-  gate2->setQuaternion(  flightlib::Quaternion(0.0, 0.0, 0.0, 1.0));
-
-  unity_bridge_ptr_->addStaticObject(gate1);
-  unity_bridge_ptr_->addStaticObject(gate2);
+  addTag(0,Eigen::Vector3f(0, 5, 3),flightlib::Quaternion(0.8660254 ,0.5, 0, 0.0  ));
+  addTag(1,Eigen::Vector3f(1.5, 3, 3),flightlib::Quaternion(0.9659258,  0, -0.258819, 0  ));
+  addTag(2,Eigen::Vector3f(0, -1, 2),flightlib::Quaternion(0.8660254 ,-0.5, 0, 0.0  ));
+  addTag(3,Eigen::Vector3f(3.5, -2, 2),flightlib::Quaternion(0.9659258,  0,0.-258819, 0   ));
+  addTag(4,Eigen::Vector3f(-3, 1, 2),flightlib::Quaternion(0.9659258,  0,0.258819, 0   ));
 
 }
+
+
+template <typename T, typename U>
+void QuadrotorSimulatorBase<T,U>::addTag(int id, Eigen::Vector3f pose, flightlib::Quaternion quat){
+          const std::string stub = "AprilTag";
+          std::string apriltag_name = stub+std::to_string(id);
+    std::shared_ptr<flightlib::StaticObject> gate =  std::make_shared<flightlib::StaticObject>(apriltag_name, apriltag_name);
+    gate->setPosition(pose);
+    gate->setSize(Eigen::Vector3f(0.1, 0.1, 0.1));
+    gate->setQuaternion(quat);
+    unity_bridge_ptr_->addStaticObject(gate);
+}
+
 
 template <typename T, typename U>
 void QuadrotorSimulatorBase<T, U>::run(void)
