@@ -93,7 +93,7 @@ rgb_camera_(std::make_unique<flightlib::RGBCamera>())
 {
   pub_odom_ = n.advertise<nav_msgs::Odometry>("odom", 100);
   pub_imu_ = n.advertise<sensor_msgs::Imu>("imu", 100);
-  pub_cam_info_ = n.advertise<sensor_msgs::Imu>("unity_drone_cam/camera_info", 100);
+  pub_cam_info_ = n.advertise<sensor_msgs::CameraInfo>("camera_info", 100);
   image_transport::ImageTransport it(n);
   pub_cam_ = it.advertise("unity_drone_cam", 1);
   pub_output_data_ = n.advertise<quadrotor_msgs::OutputData>("output_data", 100);
@@ -180,6 +180,9 @@ rgb_camera_(std::make_unique<flightlib::RGBCamera>())
   cam_info.K = {focal, 0, rgb_camera_->getWidth()*0.5, 0, focal, rgb_camera_->getHeight()*0.5, 0,0,1};
   //double  P[12] = {focal, 0, rgb_camera_->getWidth()*0.5, 0, 0,focal, rgb_camera_->getHeight()*0.5, 0,0,0,1,0};
   cam_info.P = {focal, 0, rgb_camera_->getWidth()*0.5, 0, 0,focal, rgb_camera_->getHeight()*0.5, 0,0,0,1,0};
+  std::cout << "Camera info  matrix" <<std::endl;
+  std::cout << cam_info<<std::endl;
+
   rgb_camera_->setRelPose(B_r_BC, R_BC);
   rgb_camera_->setPostProcesscing(
   std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
@@ -195,11 +198,11 @@ rgb_camera_(std::make_unique<flightlib::RGBCamera>())
 
   bool unity_ready_ = unity_bridge_ptr_->connectUnity(flightlib::UnityScene::WAREHOUSE);
   // Initialize Unity bridge
-  addTag(0,Eigen::Vector3f(0, 5, 3),flightlib::Quaternion(0.8660254 ,0.5, 0, 0.0  ));
-  addTag(1,Eigen::Vector3f(1.5, 3, 3),flightlib::Quaternion(0.9659258,  0, -0.258819, 0  ));
-  addTag(2,Eigen::Vector3f(0, -1, 2),flightlib::Quaternion(0.8660254 ,-0.5, 0, 0.0  ));
-  addTag(3,Eigen::Vector3f(3.5, -2, 2),flightlib::Quaternion(0.9659258,  0,0.-258819, 0   ));
-  addTag(4,Eigen::Vector3f(-3, 1, 2),flightlib::Quaternion(0.9659258,  0,0.258819, 0   ));
+  //addTag(0,Eigen::Vector3f(0, 4, 1),flightlib::Quaternion(0.8660254 ,0.5, 0, 0.0  ));
+  //addTag(1,Eigen::Vector3f(1.5, 3, 0.7),flightlib::Quaternion(0.9659258,  0, -0.258819, 0  ));
+  //addTag(2,Eigen::Vector3f(0, -1, 0.6),flightlib::Quaternion(0.8660254 ,-0.5, 0, 0.0  ));
+  //addTag(3,Eigen::Vector3f(3.5, -2, 1),flightlib::Quaternion(0.9659258,  0,0.-258819, 0   ));
+  //addTag(4,Eigen::Vector3f(-3, 1, 1),flightlib::Quaternion(1.0,  0,0.0, 0   ));
 
 }
 
@@ -210,7 +213,8 @@ void QuadrotorSimulatorBase<T,U>::addTag(int id, Eigen::Vector3f pose, flightlib
           std::string apriltag_name = stub+std::to_string(id);
     std::shared_ptr<flightlib::StaticObject> gate =  std::make_shared<flightlib::StaticObject>(apriltag_name, apriltag_name);
     gate->setPosition(pose);
-    gate->setSize(Eigen::Vector3f(0.1, 0.1, 0.1));
+    const float scale = 0.1; //Make the tags bigger
+    gate->setSize(Eigen::Vector3f(scale , scale, scale));
     gate->setQuaternion(quat);
     unity_bridge_ptr_->addStaticObject(gate);
 }
@@ -280,7 +284,7 @@ void QuadrotorSimulatorBase<T, U>::run(void)
           sensor_msgs::ImagePtr rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
           rgb_msg->header.stamp = tnow;
           pub_cam_.publish(rgb_msg);   
-          cam_info.header = rgb_msg->header;
+          cam_info.header.stamp = tnow;
           pub_cam_info_.publish(cam_info);
         }
       }

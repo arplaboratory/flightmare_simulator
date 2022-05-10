@@ -2,6 +2,7 @@
 #include <quadrotor_msgs/SO3Command.h>
 #include "quadrotor_simulator_base.hpp"
 #include <stdio.h>
+#include <random>
 
 namespace QuadrotorSimulator
 {
@@ -168,6 +169,78 @@ QuadrotorSimulatorSO3::ControlInput QuadrotorSimulatorSO3::getControl(
 }
 }
 
+void parse_tag_descriptions(XmlRpc::XmlRpcValue tag_desc ,QuadrotorSimulator::QuadrotorSimulatorSO3 &quad_sim){
+  int numTags = tag_desc.size();
+  for(int i =0;i<numTags;i++){
+    XmlRpc::XmlRpcValue& curr_descr= tag_desc[i];  
+    Eigen::Vector3f pose;
+    pose <<  (double)curr_descr["x"], (double)curr_descr["y"],(double)curr_descr["z"];
+    flightlib::Quaternion quat((double)curr_descr["qw"],(double)curr_descr["qx"],(double)curr_descr["qy"],(double)curr_descr["qz"]);
+    quad_sim.addTag((int)curr_descr["id"],pose,quat); 
+  }
+  return;
+}
+
+void randomizeTags(ros::NodeHandle &nh,QuadrotorSimulator::QuadrotorSimulatorSO3 &quad_sim){
+  int numTag = 0;
+  double maxY= 3;
+  double minY= -3;
+  double maxX= 3;
+  double minX= -3;
+  double maxZ= 3;
+  double minZ= 1;
+  nh.getParam("maxY",maxY);
+  nh.getParam("minY",minY);
+  nh.getParam("maxX",maxX);
+  nh.getParam("minX",minX);
+  nh.getParam("maxZ",maxZ);
+  nh.getParam("minZ",minZ);
+  nh.getParam("numTags",numTag);
+  std::cout <<"Number of Tags: " << numTag <<std::endl;
+  if(numTag > 10){
+    ROS_ERROR_STREAM("TOO MANY TAGS MORE THAN 10 REQUESTED: ");
+    return;
+  }
+  std::vector<Eigen::Vector3f> listofPose;
+  for(int i =0;i<numTag;i++){
+    float min_dist = 0.0;
+    Eigen::Vector4f quat_temp;
+    quat_temp << (float)(rand()%10000) - 5000.0,(float)(rand()%10000)- 5000.0,(float)(rand()%10000)- 5000.0,(float)(rand()%10000)- 5000.0;
+    std::cout << " Randomized positions" <<std::endl;
+    quat_temp.normalize();
+    flightlib::Quaternion quat(quat_temp[0],quat_temp[1],quat_temp[2],quat_temp[3]);
+    //Make sure no tags overlap
+    if(i>0){
+        //Try 10 times to find a place where you are atleast 0.5 a meter apart
+        for(int k=0;k<10;k++){
+          min_dist = 9999.9;
+          Eigen::Vector3f pose;
+          pose << (float)(rand()%10000)*(maxX-minX)/10000 + minX,(float)(rand()%10000)*(maxY-minY)/10000 + minY,(float)(rand()%10000)*(maxZ-minZ)/10000 + minZ;
+          //Calculate the minimum distance
+          for(int j =0;j < i;j++){
+            Eigen::Vector3f temp_pose = listofPose[j]-pose;
+            float dist = temp_pose.norm();
+            if(dist < min_dist){
+              min_dist = dist;
+            }
+          }
+          // Decently far away from other objects
+          if(min_dist >=0.5){
+            listofPose.push_back(pose);
+            quad_sim.addTag(i,pose,quat);     
+            break; 
+          }
+      }
+    }
+    else{
+      Eigen::Vector3f pose;
+      pose << (float)(rand()%10000)*(maxX-minX)/10000 + minX,(float)(rand()%10000)*(maxY-minY)/10000 + minY,(float)(rand()%10000)*(maxZ-minZ)/10000 + minZ;
+      listofPose.push_back(pose);
+      quad_sim.addTag(i,pose,quat);      
+    }
+  }
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "quadrotor_simulator_so3");
@@ -176,6 +249,24 @@ int main(int argc, char **argv)
   ros::NodeHandle nh("~");
   QuadrotorSimulator::QuadrotorSimulatorSO3 quad_sim(nh);
   ROS_WARN("SIMULATOR MADE");
+  XmlRpc::XmlRpcValue april_tag_descriptions;
+  bool rand = false;
+  nh.getParam("rand",rand);
+  if(rand){
+    randomizeTags(nh,quad_sim);
+  }
+  else{
+    if(!nh.getParam("april_tags", april_tag_descriptions)){
+      ROS_WARN("No april tags specified");
+    }
+    else{
+      try{
+        parse_tag_descriptions(april_tag_descriptions, quad_sim);
+      } catch(...){
+        ROS_ERROR_STREAM("Error loading tag descriptions: ");
+      }
+    }
+  }
 
   quad_sim.run();
 
