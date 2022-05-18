@@ -32,7 +32,8 @@ Controls just like ARPL_Quadrotor_control
 * The quadrotor is updated based on the /quadrotor/odom
 ### Output Topic
 * The Front Camera Images are published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/compressed
-* Camera Matrix Info is published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/camera_info <- Development in progress
+* Camera Matrix Info is published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/camera_info 
+* Simulation is done in RVIZ and graphics are handled in Unity. Please realize that Unity ONLY HANDLES Graphics. 
 
 ## Files of Note
 This is just a modified version of the simulator interface. quadrotor_simulator_base.hpp has all the Unity Mirroring and object spawning
