@@ -142,7 +142,7 @@ rgb_camera_(std::make_unique<flightlib::RGBCamera>())
   quad_.setMinRPM(get_param("min_rpm"));
   quad_.setMaxRPM(get_param("max_rpm"));
   quad_.setDragCoefficient(get_param("drag_coefficient"));
-
+  
   Eigen::Vector3d initial_pos;
   n.param("initial_position/x", initial_pos(0), 0.0);
   n.param("initial_position/y", initial_pos(1), 0.0);
@@ -164,7 +164,7 @@ rgb_camera_(std::make_unique<flightlib::RGBCamera>())
 
   // Add quadrotor unity
   quad_.setState(state);
-  flightlib::Vector<3> B_r_BC(0.0, 0.0, 0.3);
+  flightlib::Vector<3> B_r_BC(0.0, 0.3, 0.0);
   flightlib::Matrix<3, 3> R_BC;
   //Add Camera -> This transforamtion is dumb.
   // which means that Idenitity is a camera facing forward
@@ -189,34 +189,59 @@ rgb_camera_(std::make_unique<flightlib::RGBCamera>())
   quad_ptr_->addRGBCamera(rgb_camera_);
   //REMEMVER ADD PTR TO QUADRTOR BEFORE UNITY BRIDGE
   unity_bridge_ptr_->addQuadrotor(quad_ptr_);
-  std::string object_id = "tage";// Unique name
-  std::string prefab_id = "AprilTag0"; // Name of the prefab in the Assets/Resources folder
-  std::shared_ptr<flightlib::StaticObject> gate1 =  std::make_shared<flightlib::StaticObject>(object_id, prefab_id);
-  gate1->setPosition(Eigen::Vector3f(0, 5, 2.5));
-  gate1->setSize(Eigen::Vector3f(0.1, 0.1, 0.1));
-  gate1->setQuaternion(  flightlib::Quaternion(0.0, 0.0, 0.0, 1.0));
-
   bool unity_ready_ = unity_bridge_ptr_->connectUnity(flightlib::UnityScene::WAREHOUSE);
   // Initialize Unity bridge
   //addTag(0,Eigen::Vector3f(0, 4, 1),flightlib::Quaternion(0.8660254 ,0.5, 0, 0.0  ));
   //addTag(1,Eigen::Vector3f(1.5, 3, 0.7),flightlib::Quaternion(0.9659258,  0, -0.258819, 0  ));
   //addTag(2,Eigen::Vector3f(0, -1, 0.6),flightlib::Quaternion(0.8660254 ,-0.5, 0, 0.0  ));
-  //addTag(3,Eigen::Vector3f(3.5, -2, 1),flightlib::Quaternion(0.9659258,  0,0.-258819, 0   ));
+  //addTag(3,Eigen::Vector3f(3.5, -2, 1),flightlib::Quaternion(0.9659258,  0,0.-0.258819, 0   ));
   //addTag(4,Eigen::Vector3f(-3, 1, 1),flightlib::Quaternion(1.0,  0,0.0, 0   ));
 
 }
 
 
+// ID 0 is the main target
 template <typename T, typename U>
 void QuadrotorSimulatorBase<T,U>::addTag(int id, Eigen::Vector3f pose, flightlib::Quaternion quat){
-          const std::string stub = "AprilTag";
-          std::string apriltag_name = stub+std::to_string(id);
+    const std::string stub = "AprilTag";
+    const std::string box_wooden = "cube_box";
+    std::string box_name = box_wooden+std::to_string(id);
+    std::string apriltag_name = stub+std::to_string(id);
     std::shared_ptr<flightlib::StaticObject> gate =  std::make_shared<flightlib::StaticObject>(apriltag_name, apriltag_name);
     gate->setPosition(pose);
-    const float scale = 0.1; //Make the tags bigger
+    const float scale = 0.05; //Make the tags bigger
     gate->setSize(Eigen::Vector3f(scale , scale, scale));
     gate->setQuaternion(quat);
     unity_bridge_ptr_->addStaticObject(gate);
+    std::shared_ptr<flightlib::StaticObject> box_gate =  std::make_shared<flightlib::StaticObject>(box_name, box_wooden);
+    Eigen::Vector3f box_pose = pose;
+    box_pose(2) = pose(2)*0.5-0.1;
+    box_gate->setPosition(box_pose);
+    box_gate->setSize(Eigen::Vector3f(0.5 , 0.5, pose(2)));
+    box_gate->setQuaternion(quat.Identity());
+    unity_bridge_ptr_->addStaticObject(box_gate);
+    std::shared_ptr<flightlib::StaticObject> box_gate2 =  std::make_shared<flightlib::StaticObject>(box_name+"next_box", box_wooden);
+    Eigen::Vector3f box_pose2 = pose;
+    box_pose2(2) = pose(2)-0.1;
+    box_gate2->setPosition(box_pose2);
+    box_gate2->setSize(Eigen::Vector3f(0.2 , 0.2, 0.1));
+    box_gate2->setQuaternion(quat.Identity());
+    unity_bridge_ptr_->addStaticObject(box_gate2);
+
+    if(id==0){
+      std::shared_ptr<flightlib::StaticObject> gate2 =  std::make_shared<flightlib::StaticObject>("rpg_gate", "rpg_gate");
+      gate2->setPosition(pose);
+      gate2->setSize(Eigen::Vector3f(scale*6 , scale*6, scale*6));
+      Eigen::Matrix3f rot = quat.toRotationMatrix();
+      Eigen::Matrix3f rot2 = Eigen::Matrix3f::Zero();
+      rot2(0,0) = 1;
+      rot2(1,2) = -1;
+      rot2(2,1) = 1;
+      rot = rot*rot2;
+      Eigen::Quaternionf quat_fixed(rot);
+      gate2->setQuaternion(flightlib::Quaternion(quat_fixed));
+      unity_bridge_ptr_->addStaticObject(gate2);
+    }
 }
 
 
@@ -263,9 +288,9 @@ void QuadrotorSimulatorBase<T, U>::run(void)
       pub_odom_.publish(odom_msg);
     
       tfBroadcast(odom_msg);
-      quad_state_.x[flightlib::QS::POSX] = odom_msg.pose.pose.position.y*3;
-      quad_state_.x[flightlib::QS::POSY] = odom_msg.pose.pose.position.x*3;
-      quad_state_.x[flightlib::QS::POSZ] = odom_msg.pose.pose.position.z*3;
+      quad_state_.x[flightlib::QS::POSX] = -1*odom_msg.pose.pose.position.y;
+      quad_state_.x[flightlib::QS::POSY] = odom_msg.pose.pose.position.x;
+      quad_state_.x[flightlib::QS::POSZ] = odom_msg.pose.pose.position.z;
       quad_state_.x[flightlib::QS::ATTW] = odom_msg.pose.pose.orientation.w;
       quad_state_.x[flightlib::QS::ATTX] = odom_msg.pose.pose.orientation.x;
       quad_state_.x[flightlib::QS::ATTY] = odom_msg.pose.pose.orientation.y;

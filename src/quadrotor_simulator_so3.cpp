@@ -169,12 +169,14 @@ QuadrotorSimulatorSO3::ControlInput QuadrotorSimulatorSO3::getControl(
 }
 }
 
+
 void parse_tag_descriptions(XmlRpc::XmlRpcValue tag_desc ,QuadrotorSimulator::QuadrotorSimulatorSO3 &quad_sim){
   int numTags = tag_desc.size();
   for(int i =0;i<numTags;i++){
     XmlRpc::XmlRpcValue& curr_descr= tag_desc[i];  
     Eigen::Vector3f pose;
-    pose <<  (double)curr_descr["x"], (double)curr_descr["y"],(double)curr_descr["z"];
+    pose <<  (double)curr_descr["y"], (double)curr_descr["x"],(double)curr_descr["z"];
+    pose[0] = pose[0]*-1;
     flightlib::Quaternion quat((double)curr_descr["qw"],(double)curr_descr["qx"],(double)curr_descr["qy"],(double)curr_descr["qz"]);
     quad_sim.addTag((int)curr_descr["id"],pose,quat); 
   }
@@ -267,7 +269,6 @@ int main(int argc, char **argv)
       }
     }
   }
-
   quad_sim.run();
 
   return 0;
