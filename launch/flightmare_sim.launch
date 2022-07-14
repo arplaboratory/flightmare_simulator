@@ -30,14 +30,15 @@
 
 
     <param name="projected_optics" type="bool" value="true" />
+  <!-- Tag size previous 0.5 -> 0.4 0.75 -> 0.6 odometry -->
 
     <rosparam param="tag_descriptions">[
-      {id: 0, size: 0.4},
-      {id: 1, size: 0.4},
-      {id: 2, size: 0.4},
-      {id: 3, size: 0.4},
-      {id: 4, size: 0.4},
-      {id: 5, size: 0.4}
+      {id: 0, size: 0.6}, 
+      {id: 1, size: 0.6},
+      {id: 2, size: 0.6},
+      {id: 3, size: 0.6},
+      {id: 4, size: 0.6},
+      {id: 5, size: 0.6}
 ]
     </rosparam>
   </node>
