@@ -24,7 +24,8 @@ sudo apt-get install terminator
 
 ## Running
 1. open the x86_64 file from the drive. NOT THE ONE FROM UZH.
-2. run  roslaunch flightmare_simulator flightmare_sim.launch 
+2. Make sure NVIDIA X Server is on (Performance Mode) if using GPU. Otherwise the Unity will NOT offload to GPU  !!!!
+3. run  roslaunch flightmare_simulator flightmare_sim.launch 
 Controls just like ARPL_Quadrotor_control
 
 ## Input/Output Topic
