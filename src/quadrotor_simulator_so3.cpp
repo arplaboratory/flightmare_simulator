@@ -246,7 +246,7 @@ void randomizeTags(ros::NodeHandle &nh,QuadrotorSimulator::QuadrotorSimulatorSO3
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "quadrotor_simulator_so3");
-  ROS_WARN("SIMULATOR START");
+  ROS_WARN("SIMULATOR START 23");
 
   ros::NodeHandle nh("~");
   QuadrotorSimulator::QuadrotorSimulatorSO3 quad_sim(nh);
@@ -269,7 +269,7 @@ int main(int argc, char **argv)
       }
     }
   }
+  ROS_WARN("TAG SPAWNED");
   quad_sim.run();
-
   return 0;
 }

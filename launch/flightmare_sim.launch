@@ -17,31 +17,6 @@
     </include>
   </group>
 
-  <node pkg="apriltags_ros" type="apriltag_detector_node" name="apriltag_detector" output="screen">
-
-    <remap from="image_rect" to="/quadrotor/quadrotor_simulator_so3/unity_drone_cam" />
-    <remap from="camera_info" to="/quadrotor/quadrotor_simulator_so3/unity_drone_cam/camera_info" />
-
-
-    <param name="image_transport" type="str" value="compressed" />
-
-
-    <param name="tag_family" type="str" value="36h11" />
-
-
-    <param name="projected_optics" type="bool" value="true" />
-  <!-- Tag size previous 0.5 -> 0.4 0.75 -> 0.6 odometry -->
-
-    <rosparam param="tag_descriptions">[
-      {id: 0, size: 0.6}, 
-      {id: 1, size: 0.6},
-      {id: 2, size: 0.6},
-      {id: 3, size: 0.6},
-      {id: 4, size: 0.6},
-      {id: 5, size: 0.6}
-]
-    </rosparam>
-  </node>
 
 
   <group ns="$(arg model)">
@@ -69,7 +44,7 @@
   </group>
 
   <!-- Rviz Visualization -->
-  <!--include file="$(find mav_launch)/launch/simulator/rviz.launch"/-->
+  <include file="$(find mav_launch)/launch/simulator/rviz.launch"/>
 
   <!-- Waypoing Navigation -->
   <!-- include file="$(find mav_launch)/launch/waypoint_navigation_plugin/waypoint_rviz.launch"/-->

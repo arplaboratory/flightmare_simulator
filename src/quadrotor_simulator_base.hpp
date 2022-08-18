@@ -57,18 +57,23 @@ class QuadrotorSimulatorBase
 
   Quadrotor quad_;
   U command_;
+  
+  //Unity 
   std::shared_ptr<flightlib::Quadrotor> quad_ptr_; // = std::make_shared<flightlib::Quadrotor>();
   std::shared_ptr<flightlib::Quadrotor> quad2_ptr_; // = std::make_shared<flightlib::Quadrotor>();
   flightlib::QuadState quad_state_;
   std::shared_ptr<flightlib::UnityBridge> unity_bridge_ptr_;
-
+  std::shared_ptr<flightlib::RGBCamera>  rgb_camera_;
+  std::shared_ptr<flightlib::RGBCamera>  rgb2_camera_;
 
  private:
   void stateToOdomMsg(const Quadrotor::State &state,
                       nav_msgs::Odometry &odom) const;
   void quadToImuMsg(const Quadrotor &quad, sensor_msgs::Imu &imu) const;
   void tfBroadcast(const nav_msgs::Odometry &odom_msg);
-
+  //bool setUnity();
+  //bool connectUnity();
+  
   ros::Publisher pub_odom_;
   ros::Publisher pub_imu_;
   ros::Publisher pub_output_data_;
@@ -83,18 +88,13 @@ class QuadrotorSimulatorBase
   std::string quad_name_;
   std::string world_frame_id_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
-  std::shared_ptr<flightlib::RGBCamera>  rgb_camera_;
-  std::shared_ptr<flightlib::RGBCamera>  rgb2_camera_;
   sensor_msgs::CameraInfo cam_info;
+  bool unity_render_;
 };
 
 template <typename T, typename U>
 QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
-quad_ptr_(std::make_shared<flightlib::Quadrotor>()),
-quad2_ptr_(std::make_shared<flightlib::Quadrotor>()),
-unity_bridge_ptr_(flightlib::UnityBridge::getInstance()),
-rgb_camera_(std::make_unique<flightlib::RGBCamera>()),
-rgb2_camera_(std::make_unique<flightlib::RGBCamera>())
+  unity_render_(false)
 {
   pub_odom_ = n.advertise<nav_msgs::Odometry>("odom", 100);
   pub_imu_ = n.advertise<sensor_msgs::Imu>("imu", 100);
@@ -169,10 +169,23 @@ rgb2_camera_(std::make_unique<flightlib::RGBCamera>())
   state.x(1) = initial_pos(1);
   state.x(2) = initial_pos(2);
   state.R = initial_q.matrix();
-  quad_state_.setZero();
 
-  // Add quadrotor unity
   quad_.setState(state);
+  
+  // Add quadrotor unity
+  ros::Duration(5.0).sleep();
+  quad_ptr_ = std::make_shared<flightlib::Quadrotor>();
+  ROS_INFO("Quadrotor created.");  
+  quad_state_.setZero();
+  quad_ptr_->reset(quad_state_);
+  rgb_camera_ = std::make_shared<flightlib::RGBCamera>();
+  //ROS_INFO("Camera created.");  
+  quad_ptr_->addRGBCamera(rgb_camera_);
+
+  //make RGB CAMERa
+
+
+
   flightlib::Vector<3> B_r_BC(0.3, 0.0, 0.0);
   flightlib::Matrix<3, 3> R_BC;
   //Add Camera -> This transforamtion is dumb.
@@ -181,49 +194,37 @@ rgb2_camera_(std::make_unique<flightlib::RGBCamera>())
   rgb_camera_->setFOV(70);
   rgb_camera_->setWidth(640);
   rgb_camera_->setHeight(480);
+  rgb_camera_->setRelPose(B_r_BC, R_BC);
+  rgb_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
   cam_info.height = rgb_camera_->getHeight();
   cam_info.width = rgb_camera_->getWidth();
-  cam_info.distortion_model = "plumb_bob";
+  
+  //cam_info.distortion_model = "plumb_bob";
   double focal = 0.5*cam_info.height/tan(0.5*3.14159265* static_cast< double >(rgb_camera_->getFOV())/180);
   //double K[9] 
   cam_info.K = {focal, 0, rgb_camera_->getWidth()*0.5, 0, focal, rgb_camera_->getHeight()*0.5, 0,0,1};
   //double  P[12] = {focal, 0, rgb_camera_->getWidth()*0.5, 0, 0,focal, rgb_camera_->getHeight()*0.5, 0,0,0,1,0};
   cam_info.P = {focal, 0, rgb_camera_->getWidth()*0.5, 0, 0,focal, rgb_camera_->getHeight()*0.5, 0,0,0,1,0};
-  rgb_camera_->setRelPose(B_r_BC, R_BC);
-  rgb_camera_->setPostProcesscing(
-  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
-  quad_ptr_->addRGBCamera(rgb_camera_);
-  //REMEMVER ADD PTR TO QUADRTOR BEFORE UNITY BRIDGE
-  
-  //Camera 2
-  flightlib::QuadState quad2_state_;
-  quad2_state_.x[flightlib::QS::POSX] = 15.0;
-  quad2_state_.x[flightlib::QS::POSY] = -10.0;
-  quad2_state_.x[flightlib::QS::POSZ] = 10.0;
-  quad2_state_.x[flightlib::QS::ATTW] = 1.0;
-  quad2_state_.x[flightlib::QS::ATTX] = 0.0;
-  quad2_state_.x[flightlib::QS::ATTY] = 0.0;
-  quad2_state_.x[flightlib::QS::ATTZ] = 0.0;
-  rgb2_camera_->setFOV(135);
-  rgb2_camera_->setWidth(640);
-  rgb2_camera_->setHeight(480);
-  rgb2_camera_->setRelPose(B_r_BC, R_BC);
-  rgb2_camera_->setPostProcesscing(std::vector<bool>{false, false, false});  // depth, segmentation, optical flow*/
 
-  quad2_ptr_->setState(quad2_state_);
-  quad2_ptr_->addRGBCamera(rgb2_camera_); //ADDING THE CAMERA IS THE PROBLEM???
-  //REMEMVER ADD PTR TO QUADRTOR BEFORE UNITY BRIDGE
-  
-
-  unity_bridge_ptr_->addQuadrotor(quad_ptr_);
-  //unity_bridge_ptr_->addQuadrotor(quad2_ptr_);
-  bool unity_ready_ = unity_bridge_ptr_->connectUnity(flightlib::UnityScene::WAREHOUSE);
+    ROS_INFO("Camera parameter made.");  
   // Initialize Unity bridge
   //addTag(0,Eigen::Vector3f(0, 4, 1),flightlib::Quaternion(0.8660254 ,0.5, 0, 0.0  ));
   //addTag(1,Eigen::Vector3f(1.5, 3, 0.7),flightlib::Quaternion(0.9659258,  0, -0.258819, 0  ));
   //addTag(2,Eigen::Vector3f(0, -1, 0.6),flightlib::Quaternion(0.8660254 ,-0.5, 0, 0.0  ));
   //addTag(3,Eigen::Vector3f(3.5, -2, 1),flightlib::Quaternion(0.9659258,  0,0.-0.258819, 0   ));
   //addTag(4,Eigen::Vector3f(-3, 1, 1),flightlib::Quaternion(1.0,  0,0.0, 0   ));
+  // wait until the gazebo and unity are loaded
+
+  // connect unity
+  ROS_INFO("Before Unity Bridge is created.");  
+
+  unity_bridge_ptr_ = flightlib::UnityBridge::getInstance();
+  ROS_INFO("Unity Bridge is create.");  
+  ROS_INFO("Before Unity Bridge Connection Wait.");  
+  ros::Duration(7.0).sleep();
+  unity_bridge_ptr_->addQuadrotor(quad_ptr_);
+  unity_render_ = unity_bridge_ptr_->connectUnity(flightlib::UnityScene::WAREHOUSE);
+  ROS_INFO("connect Unity Bridge is created.");  
 
 }
 
@@ -285,9 +286,11 @@ Eigen::Vector4f mul(Eigen::Vector4f q1,Eigen::Vector4f q2) {
 template <typename T, typename U>
 void QuadrotorSimulatorBase<T, U>::run(void)
 {
+  std::cout << " Start run stuff " <<std::endl;
   static int downsample_unity = 0;
   // Call once with empty command to initialize values
   cmd_callback(boost::make_shared<T>());
+   std::cout << " command callback " <<std::endl;
   static bool last_pose = true;
   QuadrotorSimulatorBase::ControlInput control;
   int frame_id = 0;
@@ -306,6 +309,7 @@ void QuadrotorSimulatorBase<T, U>::run(void)
   ros::Time next_odom_pub_time = ros::Time::now();
   while(ros::ok())
   {
+
     ros::spinOnce();
 
     control = getControl(quad_, command_);
@@ -320,15 +324,16 @@ void QuadrotorSimulatorBase<T, U>::run(void)
 
     if((tnow >= next_odom_pub_time) )
     {
+
       next_odom_pub_time += odom_pub_duration;
       const Quadrotor::State &state = quad_.getState();
-
       stateToOdomMsg(state, odom_msg);
       odom_msg.header.stamp = tnow;
       pub_odom_.publish(odom_msg);
       tfBroadcast(odom_msg);
+      Eigen::Vector4f robot_odom;
       // update the robot state only if we are mirro r unite
-      if(mirrorUnity){
+      if(true){
         //Static quaternion
         Eigen::Vector4f quat_staic;
         quat_staic[1]=0.0;
@@ -336,7 +341,6 @@ void QuadrotorSimulatorBase<T, U>::run(void)
         quat_staic[3]=0.707;
         quat_staic[0]=0.707;
         quat_staic.normalize();
-        Eigen::Vector4f robot_odom;
         robot_odom[0] = odom_msg.pose.pose.orientation.w;
         robot_odom[1] = odom_msg.pose.pose.orientation.x;
         robot_odom[2] = odom_msg.pose.pose.orientation.y;
@@ -349,6 +353,7 @@ void QuadrotorSimulatorBase<T, U>::run(void)
         quad_state_.x[flightlib::QS::ATTX] =  robot_odom[1];
         quad_state_.x[flightlib::QS::ATTY] =  robot_odom[2];
         quad_state_.x[flightlib::QS::ATTZ] =  robot_odom[3];
+
       }
       else{
         if(last_pose){
@@ -362,8 +367,9 @@ void QuadrotorSimulatorBase<T, U>::run(void)
       quad_ptr_->setState(quad_state_);
       downsample_unity+=1;
       // Render next frame
-      if(downsample_unity==20){
+      if(downsample_unity==5){
         cv::Mat img;
+
         unity_bridge_ptr_->getRender(0);
         unity_bridge_ptr_->handleOutput();
         downsample_unity = 0;
@@ -393,6 +399,7 @@ void QuadrotorSimulatorBase<T, U>::run(void)
       output_data_msg.motor_rpm[2] = state.motor_rpm(2);
       output_data_msg.motor_rpm[3] = state.motor_rpm(3);
       pub_output_data_.publish(output_data_msg);
+
     }
     r.sleep();
   }

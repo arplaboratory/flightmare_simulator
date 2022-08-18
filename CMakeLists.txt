@@ -7,32 +7,26 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 find_package(OpenCV REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEIGEN_STACK_ALLOCATION_LIMIT=1048576")
-# otherwise double free or corruption (out) error when running racing or motion_planning example
-add_compile_options(-O3)
 
-# Setup Release and Debug flags
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_ARCH_FLAGS} -Wall -DNDEBUG -fPIC")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -Wall -g")
 
-find_package(catkin REQUIRED COMPONENTS roscpp quadrotor_msgs nav_msgs sensor_msgs flightlib tf2_ros image_transport)
+find_package(catkin REQUIRED COMPONENTS roscpp quadrotor_msgs nav_msgs sensor_msgs flightlib tf2_ros image_transport )
 find_package(Eigen3 REQUIRED)
 find_package(catkin_simple)
 
 catkin_simple()
 
-include_directories(include ${EIGEN3_INCLUDE_DIR} ${catkin_INCLUDE_DIRS})
+include_directories(include ${EIGEN3_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${zmqq_INCLUDE_DIR} )
 
 catkin_package(
   INCLUDE_DIRS
   LIBRARIES
-  CATKIN_DEPENDS roscpp quadrotor_msgs nav_msgs sensor_msgs tf2_ros  flightlib image_transport
+  CATKIN_DEPENDS roscpp quadrotor_msgs nav_msgs sensor_msgs tf2_ros  flightlib image_transport  
   DEPENDS EIGEN3)
 
-add_library(quadrotor_dynamics src/dynamics/Quadrotor.cpp)
+add_library(flightmare_quadrotor_dynamics src/dynamics/Quadrotor.cpp)
 
 add_executable(quadrotor_simulator_so3 src/quadrotor_simulator_so3.cpp)
-target_link_libraries(quadrotor_simulator_so3 quadrotor_dynamics ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} stdc++fs zmq zmqpp)
+target_link_libraries(quadrotor_simulator_so3 flightmare_quadrotor_dynamics ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} stdc++fs zmq zmqpp)
 add_dependencies(quadrotor_simulator_so3 ${OpenCV_LIBRARIES} ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
 
 #add_executable(quadrotor_simulator_trpy src/quadrotor_simulator_trpy.cpp)
