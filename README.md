@@ -46,3 +46,13 @@ The packages available aren't there. Download and manually install .dev files fr
 sudo apt-get install libzmq3-dev
 https://pkgs.org/download/libzmqpp4
 
+## Known Bugs and Fixes
+1. Flightmare random disconnnects. This is caused by the function in /flightmare/flightlib/src/bridges/unity_bridge.cpp as handleOutput()
+
+Replace Blocking message
+```sub_.receive(msg)
+with Non blocking message
+``` if (!sub_.receive(msg, true)) {
+  	return false;
+   }
+   
