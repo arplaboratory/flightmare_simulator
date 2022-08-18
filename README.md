@@ -40,3 +40,9 @@ This is just a modified version of the simulator interface. quadrotor_simulator_
 
 ## Future Options
 Ability to control Apriltag spawn in .yaml file. 
+
+#UBUNTU 22.04 PROBLEMS!!!!
+The packages available aren't there. Download and manually install .dev files from these repositories
+sudo apt-get install libzmq3-dev
+https://pkgs.org/download/libzmqpp4
+
