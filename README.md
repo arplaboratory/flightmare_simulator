@@ -50,9 +50,9 @@ https://pkgs.org/download/libzmqpp4
 1. Flightmare random disconnnects. This is caused by the function in /flightmare/flightlib/src/bridges/unity_bridge.cpp as handleOutput()
 
 Replace Blocking message
-```sub_.receive(msg)
+```sub_.receive(msg)```
 with Non blocking message
 ``` if (!sub_.receive(msg, true)) {
   	return false;
-   }
+   }```
    
