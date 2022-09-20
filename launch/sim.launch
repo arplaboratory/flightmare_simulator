@@ -14,7 +14,7 @@
     name="quadrotor_simulator_so3"
     output="screen">
     <rosparam file="$(find flightmare_simulator)/config/$(arg type)_params.yaml"/>
-    <rosparam file="$(find flightmare_simulator)/config/aprilTag_config.yaml"/>
+    <rosparam file="$(find flightmare_simulator)/config/aprilTag_config_detect.yaml"/>
     <param name="world_frame_id" value="$(arg world_frame_id)"/>
     <param name="quadrotor_name" value="$(arg name)"/>
     <param name="rate/odom" value="$(arg rate/odom)"/>

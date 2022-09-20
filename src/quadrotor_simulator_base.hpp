@@ -185,8 +185,8 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   //make RGB CAMERa
 
 
-
-  flightlib::Vector<3> B_r_BC(0.3, 0.0, 0.0);
+  //bring camera
+  flightlib::Vector<3> B_r_BC(1.0, 0.0, 0.0);
   flightlib::Matrix<3, 3> R_BC;
   //Add Camera -> This transforamtion is dumb.
   // which means that Idenitity is a camera facing forward
@@ -200,7 +200,7 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   cam_info.width = rgb_camera_->getWidth();
   
   //cam_info.distortion_model = "plumb_bob";
-  double focal = 0.5*cam_info.height/tan(0.5*3.14159265* static_cast< double >(rgb_camera_->getFOV())/180);
+  double focal = 0.5*cam_info.height/tan(0.5*3.141* static_cast< double >(rgb_camera_->getFOV())/180);
   //double K[9] 
   cam_info.K = {focal, 0, rgb_camera_->getWidth()*0.5, 0, focal, rgb_camera_->getHeight()*0.5, 0,0,1};
   //double  P[12] = {focal, 0, rgb_camera_->getWidth()*0.5, 0, 0,focal, rgb_camera_->getHeight()*0.5, 0,0,0,1,0};
