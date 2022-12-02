@@ -90,6 +90,7 @@ class QuadrotorSimulatorBase
   tf2_ros::TransformBroadcaster tf_broadcaster_;
   sensor_msgs::CameraInfo cam_info;
   bool unity_render_;
+  bool base_setup_=false;
 };
 
 template <typename T, typename U>
@@ -171,18 +172,16 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   state.R = initial_q.matrix();
 
   quad_.setState(state);
-  
+  quad_state_.setZero();
+
   // Add quadrotor unity
-  ros::Duration(5.0).sleep();
+ // ros::Duration(5.0).sleep();
   quad_ptr_ = std::make_shared<flightlib::Quadrotor>();
   ROS_INFO("Quadrotor created.");  
-  quad_state_.setZero();
   quad_ptr_->reset(quad_state_);
+    ROS_INFO("Making Camera.");  
   rgb_camera_ = std::make_shared<flightlib::RGBCamera>();
-  //ROS_INFO("Camera created.");  
-  quad_ptr_->addRGBCamera(rgb_camera_);
-
-  //make RGB CAMERa
+  ROS_INFO("Camera created.");  
 
 
   //bring camera
@@ -198,7 +197,12 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   rgb_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
   cam_info.height = rgb_camera_->getHeight();
   cam_info.width = rgb_camera_->getWidth();
-  
+      ROS_INFO("set Camera[ para,s");  
+  quad_ptr_->addRGBCamera(rgb_camera_);
+
+  //make RGB CAMERa
+    ROS_INFO("add Camera.");  
+
   //cam_info.distortion_model = "plumb_bob";
   double focal = 0.5*cam_info.height/tan(0.5*3.141* static_cast< double >(rgb_camera_->getFOV())/180);
   //double K[9] 
@@ -214,18 +218,19 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   //addTag(3,Eigen::Vector3f(3.5, -2, 1),flightlib::Quaternion(0.9659258,  0,0.-0.258819, 0   ));
   //addTag(4,Eigen::Vector3f(-3, 1, 1),flightlib::Quaternion(1.0,  0,0.0, 0   ));
   // wait until the gazebo and unity are loaded
-
   // connect unity
   ROS_INFO("Before Unity Bridge is created.");  
 
   unity_bridge_ptr_ = flightlib::UnityBridge::getInstance();
   ROS_INFO("Unity Bridge is create.");  
   ROS_INFO("Before Unity Bridge Connection Wait.");  
-  ros::Duration(7.0).sleep();
+  ros::Duration(2.0).sleep();
   unity_bridge_ptr_->addQuadrotor(quad_ptr_);
   unity_render_ = unity_bridge_ptr_->connectUnity(flightlib::UnityScene::WAREHOUSE);
   ROS_INFO("connect Unity Bridge is created.");  
 
+
+  base_setup_ =true;
 }
 
 
@@ -239,13 +244,13 @@ void QuadrotorSimulatorBase<T,U>::addTag(int id, Eigen::Vector3f pose, flightlib
     std::string apriltag_name = stub+std::to_string(id);
     std::shared_ptr<flightlib::StaticObject> gate =  std::make_shared<flightlib::StaticObject>(apriltag_name, apriltag_name);
     gate->setPosition(pose);
-    const float scale = 0.075; //Make the tags bigger
+    const float scale = 0.050; //Make the tags bigger
     gate->setSize(Eigen::Vector3f(scale , scale*1.25, scale));
     gate->setQuaternion(quat);
     unity_bridge_ptr_->addStaticObject(gate);
     std::shared_ptr<flightlib::StaticObject> box_gate =  std::make_shared<flightlib::StaticObject>(box_name, box_wooden);
     Eigen::Vector3f box_pose = pose;
-    box_pose(2) = pose(2)*0.5-scale*10;
+    box_pose(2) = pose(2)*0.5-scale*6;
     box_gate->setPosition(box_pose);
     box_gate->setSize(Eigen::Vector3f(scale*10 , scale*10, pose(2)));
     box_gate->setQuaternion(quat.Identity());
@@ -254,7 +259,7 @@ void QuadrotorSimulatorBase<T,U>::addTag(int id, Eigen::Vector3f pose, flightlib
     Eigen::Vector3f box_pose2 = pose;
     box_pose2(2) = pose(2)-0.2;
     box_gate2->setPosition(box_pose2);
-    box_gate2->setSize(Eigen::Vector3f(0.2 , 0.2, 0.1));
+    box_gate2->setSize(Eigen::Vector3f(0.2 , 0.2, 0.7));
     box_gate2->setQuaternion(quat.Identity());
     //unity_bridge_ptr_->addStaticObject(box_gate2);
     //ADD THE RPG GATE AS A CROWN OBJECT TO OBSERVE
@@ -286,6 +291,10 @@ Eigen::Vector4f mul(Eigen::Vector4f q1,Eigen::Vector4f q2) {
 template <typename T, typename U>
 void QuadrotorSimulatorBase<T, U>::run(void)
 {
+  //Auto return if we aren't done with setup 
+  if(!base_setup_){
+    return;
+  }
   std::cout << " Start run stuff " <<std::endl;
   static int downsample_unity = 0;
   // Call once with empty command to initialize values
