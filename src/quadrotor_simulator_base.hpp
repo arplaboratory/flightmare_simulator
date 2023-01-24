@@ -60,11 +60,10 @@ class QuadrotorSimulatorBase
   
   //Unity 
   std::shared_ptr<flightlib::Quadrotor> quad_ptr_; // = std::make_shared<flightlib::Quadrotor>();
-  std::shared_ptr<flightlib::Quadrotor> quad2_ptr_; // = std::make_shared<flightlib::Quadrotor>();
+  //std::shared_ptr<flightlib::Quadrotor> quad2_ptr_; // = std::make_shared<flightlib::Quadrotor>();
   flightlib::QuadState quad_state_;
   std::shared_ptr<flightlib::UnityBridge> unity_bridge_ptr_;
-  std::shared_ptr<flightlib::RGBCamera>  rgb_camera_;
-  std::shared_ptr<flightlib::RGBCamera>  rgb2_camera_;
+  //std::shared_ptr<flightlib::RGBCamera>  rgb2_camera_;
 
  private:
   void stateToOdomMsg(const Quadrotor::State &state,
@@ -91,12 +90,18 @@ class QuadrotorSimulatorBase
   sensor_msgs::CameraInfo cam_info;
   bool unity_render_;
   bool base_setup_=false;
+
+  std::shared_ptr<flightlib::RGBCamera>  rgb_camera_;
+  std::shared_ptr<flightlib::RGBCamera>  rgb2_camera_;
+
 };
 
 template <typename T, typename U>
 QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
-  unity_render_(false)
-{
+  unity_render_(false),
+  rgb_camera_(new flightlib::RGBCamera()),
+  rgb2_camera_(new flightlib::RGBCamera())
+  {
   pub_odom_ = n.advertise<nav_msgs::Odometry>("odom", 100);
   pub_imu_ = n.advertise<sensor_msgs::Imu>("imu", 100);
   pub_cam_info_ = n.advertise<sensor_msgs::CameraInfo>("camera_info", 100);
@@ -179,16 +184,13 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   quad_ptr_ = std::make_shared<flightlib::Quadrotor>();
   ROS_INFO("Quadrotor created.");  
   quad_ptr_->reset(quad_state_);
-    ROS_INFO("Making Camera.");  
-  rgb_camera_ = std::make_shared<flightlib::RGBCamera>();
-  ROS_INFO("Camera created.");  
 
+  
 
   //bring camera
+
   flightlib::Vector<3> B_r_BC(1.0, 0.0, 0.0);
   flightlib::Matrix<3, 3> R_BC;
-  //Add Camera -> This transforamtion is dumb.
-  // which means that Idenitity is a camera facing forward
   R_BC << 0.0,1.0,0.0,  -1.0,0.0,0.0,  0.0,0.0,1.0;
   rgb_camera_->setFOV(70);
   rgb_camera_->setWidth(640);
@@ -197,29 +199,25 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   rgb_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
   cam_info.height = rgb_camera_->getHeight();
   cam_info.width = rgb_camera_->getWidth();
-      ROS_INFO("set Camera[ para,s");  
-  quad_ptr_->addRGBCamera(rgb_camera_);
+  quad_ptr_->addRGBCamera(rgb_camera_); 
+  cam_info.distortion_model = "plumb_bob";
+  double focal = 0.5*cam_info.height/tan(0.5*3.141* static_cast< double >(rgb_camera_->getFOV())/180);
+  cam_info.K = {focal, 0, rgb_camera_->getWidth()*0.5, 0, focal, rgb_camera_->getHeight()*0.5, 0,0,1};
+  cam_info.P = {focal, 0, rgb_camera_->getWidth()*0.5, 0, 0,focal, rgb_camera_->getHeight()*0.5, 0,0,0,1,0};
+  //Camera 2
+  flightlib::Vector<3> B2_r_BC(1.0, 1.0, 0.0);
+  rgb2_camera_->setFOV(70);
+  rgb2_camera_->setWidth(640);
+  rgb2_camera_->setHeight(480);
+  rgb2_camera_->setRelPose(B2_r_BC, R_BC);
+  rgb2_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
+  quad_ptr_->addRGBCamera(rgb2_camera_);    
+  ROS_INFO("add Camera.");  
 
   //make RGB CAMERa
-    ROS_INFO("add Camera.");  
-
-  //cam_info.distortion_model = "plumb_bob";
-  double focal = 0.5*cam_info.height/tan(0.5*3.141* static_cast< double >(rgb_camera_->getFOV())/180);
-  //double K[9] 
-  cam_info.K = {focal, 0, rgb_camera_->getWidth()*0.5, 0, focal, rgb_camera_->getHeight()*0.5, 0,0,1};
-  //double  P[12] = {focal, 0, rgb_camera_->getWidth()*0.5, 0, 0,focal, rgb_camera_->getHeight()*0.5, 0,0,0,1,0};
-  cam_info.P = {focal, 0, rgb_camera_->getWidth()*0.5, 0, 0,focal, rgb_camera_->getHeight()*0.5, 0,0,0,1,0};
-
-    ROS_INFO("Camera parameter made.");  
-  // Initialize Unity bridge
-  //addTag(0,Eigen::Vector3f(0, 4, 1),flightlib::Quaternion(0.8660254 ,0.5, 0, 0.0  ));
-  //addTag(1,Eigen::Vector3f(1.5, 3, 0.7),flightlib::Quaternion(0.9659258,  0, -0.258819, 0  ));
-  //addTag(2,Eigen::Vector3f(0, -1, 0.6),flightlib::Quaternion(0.8660254 ,-0.5, 0, 0.0  ));
-  //addTag(3,Eigen::Vector3f(3.5, -2, 1),flightlib::Quaternion(0.9659258,  0,0.-0.258819, 0   ));
-  //addTag(4,Eigen::Vector3f(-3, 1, 1),flightlib::Quaternion(1.0,  0,0.0, 0   ));
-  // wait until the gazebo and unity are loaded
-  // connect unity
-  ROS_INFO("Before Unity Bridge is created.");  
+    ROS_INFO("Camera parameter made."); 
+  
+   ROS_INFO("Before Unity Bridge is created.");  
 
   unity_bridge_ptr_ = flightlib::UnityBridge::getInstance();
   ROS_INFO("Unity Bridge is create.");  
@@ -228,7 +226,6 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   unity_bridge_ptr_->addQuadrotor(quad_ptr_);
   unity_render_ = unity_bridge_ptr_->connectUnity(flightlib::UnityScene::WAREHOUSE);
   ROS_INFO("connect Unity Bridge is created.");  
-
 
   base_setup_ =true;
 }
@@ -389,11 +386,11 @@ void QuadrotorSimulatorBase<T, U>::run(void)
           cam_info.header.stamp = tnow;
           pub_cam_info_.publish(cam_info);
         }
-        /*if(rgb2_camera_->getRGBImage(img)){
+        if(rgb2_camera_->getRGBImage(img)){
           sensor_msgs::ImagePtr rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
           rgb_msg->header.stamp = tnow;
           pub_cam_long_view_.publish(rgb_msg);   
-        }*/
+        }
       }      
       quadToImuMsg(quad_, imu_msg);
       imu_msg.header.stamp = tnow;

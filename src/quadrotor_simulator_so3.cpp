@@ -253,7 +253,7 @@ int main(int argc, char **argv)
   ROS_WARN("SIMULATOR MADE");
   XmlRpc::XmlRpcValue april_tag_descriptions;
   bool rand = false;
-  nh.getParam("rand",rand);
+  /*nh.getParam("rand",rand);
   if(rand){
     randomizeTags(nh,quad_sim);
   }
@@ -269,7 +269,7 @@ int main(int argc, char **argv)
       }
     }
   }
-  ROS_WARN("TAG SPAWNED");
+  ROS_WARN("TAG SPAWNED");*/
   quad_sim.run();
   return 0;
 }
