@@ -77,8 +77,8 @@ class QuadrotorSimulatorBase
   ros::Publisher pub_imu_;
   ros::Publisher pub_output_data_;
   ros::Publisher pub_cam_info_;
-  image_transport::Publisher pub_cam_;
-  image_transport::Publisher pub_cam_long_view_;
+  image_transport::Publisher pub_cam_left_;
+  image_transport::Publisher pub_cam_right_;
   ros::Subscriber sub_cmd_;
   ros::Subscriber sub_extern_force_;
   ros::Subscriber sub_extern_moment_;
@@ -91,24 +91,24 @@ class QuadrotorSimulatorBase
   bool unity_render_;
   bool base_setup_=false;
 
-  std::shared_ptr<flightlib::RGBCamera>  rgb_camera_;
-  std::shared_ptr<flightlib::RGBCamera>  rgb2_camera_;
+  std::shared_ptr<flightlib::RGBCamera>  rgb_l_camera_;
+  std::shared_ptr<flightlib::RGBCamera>  rgb_r_camera_;
 
 };
 
 template <typename T, typename U>
 QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   unity_render_(false),
-  rgb_camera_(new flightlib::RGBCamera()),
-  rgb2_camera_(new flightlib::RGBCamera())
+  rgb_l_camera_(new flightlib::RGBCamera()),
+  rgb_r_camera_(new flightlib::RGBCamera())
   {
   pub_odom_ = n.advertise<nav_msgs::Odometry>("odom", 100);
   pub_imu_ = n.advertise<sensor_msgs::Imu>("imu", 100);
   pub_cam_info_ = n.advertise<sensor_msgs::CameraInfo>("camera_info", 100);
   image_transport::ImageTransport it(n);
   image_transport::ImageTransport it2(n);
-  pub_cam_ = it.advertise("unity_drone_cam", 1);
-  pub_cam_long_view_ = it2.advertise("long_view_cam",1);
+  pub_cam_left_ = it.advertise("left_cam", 1);
+  pub_cam_right_ = it2.advertise("right_cam",1);
   pub_output_data_ = n.advertise<quadrotor_msgs::OutputData>("output_data", 100);
   sub_cmd_ = n.subscribe<T>("cmd", 100, &QuadrotorSimulatorBase::cmd_callback,
                             this, ros::TransportHints().tcpNoDelay());
@@ -192,26 +192,26 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   flightlib::Vector<3> B_r_BC(1.0, 0.0, 0.0);
   flightlib::Matrix<3, 3> R_BC;
   R_BC << 0.0,1.0,0.0,  -1.0,0.0,0.0,  0.0,0.0,1.0;
-  rgb_camera_->setFOV(70);
-  rgb_camera_->setWidth(640);
-  rgb_camera_->setHeight(480);
-  rgb_camera_->setRelPose(B_r_BC, R_BC);
-  rgb_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
-  cam_info.height = rgb_camera_->getHeight();
-  cam_info.width = rgb_camera_->getWidth();
-  quad_ptr_->addRGBCamera(rgb_camera_); 
+  rgb_l_camera_->setFOV(70);
+  rgb_l_camera_->setWidth(640);
+  rgb_l_camera_->setHeight(480);
+  rgb_l_camera_->setRelPose(B_r_BC, R_BC);
+  rgb_l_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
+  cam_info.height = rgb_l_camera_->getHeight();
+  cam_info.width = rgb_l_camera_->getWidth();
+  quad_ptr_->addRGBCamera(rgb_l_camera_); 
   cam_info.distortion_model = "plumb_bob";
-  double focal = 0.5*cam_info.height/tan(0.5*3.141* static_cast< double >(rgb_camera_->getFOV())/180);
-  cam_info.K = {focal, 0, rgb_camera_->getWidth()*0.5, 0, focal, rgb_camera_->getHeight()*0.5, 0,0,1};
-  cam_info.P = {focal, 0, rgb_camera_->getWidth()*0.5, 0, 0,focal, rgb_camera_->getHeight()*0.5, 0,0,0,1,0};
+  double focal = 0.5*cam_info.height/tan(0.5*3.141* static_cast< double >(rgb_l_camera_->getFOV())/180);
+  cam_info.K = {focal, 0, rgb_l_camera_->getWidth()*0.5, 0, focal, rgb_l_camera_->getHeight()*0.5, 0,0,1};
+  cam_info.P = {focal, 0, rgb_l_camera_->getWidth()*0.5, 0, 0,focal, rgb_l_camera_->getHeight()*0.5, 0,0,0,1,0};
   //Camera 2
   flightlib::Vector<3> B2_r_BC(1.0, 1.0, 0.0);
-  rgb2_camera_->setFOV(70);
-  rgb2_camera_->setWidth(640);
-  rgb2_camera_->setHeight(480);
-  rgb2_camera_->setRelPose(B2_r_BC, R_BC);
-  rgb2_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
-  quad_ptr_->addRGBCamera(rgb2_camera_);    
+  rgb_r_camera_->setFOV(70);
+  rgb_r_camera_->setWidth(640);
+  rgb_r_camera_->setHeight(480);
+  rgb_r_camera_->setRelPose(B2_r_BC, R_BC);
+  rgb_r_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
+  quad_ptr_->addRGBCamera(rgb_r_camera_);    
   ROS_INFO("add Camera.");  
 
   //make RGB CAMERa
@@ -379,17 +379,17 @@ void QuadrotorSimulatorBase<T, U>::run(void)
         unity_bridge_ptr_->getRender(0);
         unity_bridge_ptr_->handleOutput();
         downsample_unity = 0;
-        if(rgb_camera_->getRGBImage(img)){
+        if(rgb_l_camera_->getRGBImage(img)){
           sensor_msgs::ImagePtr rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
           rgb_msg->header.stamp = tnow;
-          pub_cam_.publish(rgb_msg);   
+          pub_cam_left_.publish(rgb_msg);   
           cam_info.header.stamp = tnow;
           pub_cam_info_.publish(cam_info);
         }
-        if(rgb2_camera_->getRGBImage(img)){
+        if(rgb_r_camera_->getRGBImage(img)){
           sensor_msgs::ImagePtr rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
           rgb_msg->header.stamp = tnow;
-          pub_cam_long_view_.publish(rgb_msg);   
+          pub_cam_right_.publish(rgb_msg);   
         }
       }      
       quadToImuMsg(quad_, imu_msg);
