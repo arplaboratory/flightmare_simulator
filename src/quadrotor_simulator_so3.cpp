@@ -22,7 +22,7 @@ class QuadrotorSimulatorSO3
     : public QuadrotorSimulatorBase<quadrotor_msgs::SO3Command, SO3Command>
 {
  public:
-  QuadrotorSimulatorSO3(ros::NodeHandle &nh) : QuadrotorSimulatorBase(nh) {
+  QuadrotorSimulatorSO3(ros::NodeHandle &nh, std::shared_ptr<flightlib::RGBCamera> cam1) : QuadrotorSimulatorBase(nh, cam1) {
   }
 
  private:
@@ -247,13 +247,14 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "quadrotor_simulator_so3");
   ROS_WARN("SIMULATOR START 23");
-
+  std::shared_ptr<flightlib::RGBCamera>  rgb_l2_camera_ =  std::make_shared<flightlib::RGBCamera>();
+ // std::shared_ptr<flightlib::RGBCamera>  rgb_r2_camera_ =  std::make_shared<flightlib::RGBCamera>();
   ros::NodeHandle nh("~");
-  QuadrotorSimulator::QuadrotorSimulatorSO3 quad_sim(nh);
+  QuadrotorSimulator::QuadrotorSimulatorSO3 quad_sim(nh, rgb_l2_camera_);
   ROS_WARN("SIMULATOR MADE");
   XmlRpc::XmlRpcValue april_tag_descriptions;
   bool rand = false;
-  /*nh.getParam("rand",rand);
+  nh.getParam("rand",rand);
   if(rand){
     randomizeTags(nh,quad_sim);
   }
@@ -269,7 +270,7 @@ int main(int argc, char **argv)
       }
     }
   }
-  ROS_WARN("TAG SPAWNED");*/
+  ROS_WARN("TAG SPAWNED");
   quad_sim.run();
   return 0;
 }

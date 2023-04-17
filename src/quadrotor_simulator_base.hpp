@@ -18,6 +18,9 @@
 #include <cv_bridge/cv_bridge.h>
 #include "flightlib/objects/static_object.hpp"
 #include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/PointCloud.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud_conversion.h>
 
 namespace QuadrotorSimulator
 {
@@ -25,14 +28,14 @@ template <typename T, typename U>
 class QuadrotorSimulatorBase
 {
  public:
-  QuadrotorSimulatorBase(ros::NodeHandle &n);
+  QuadrotorSimulatorBase(ros::NodeHandle &n, std::shared_ptr<flightlib::RGBCamera> cam1);
   void run(void);
   void extern_force_callback(
       const geometry_msgs::Vector3Stamped::ConstPtr &f_ext);
   void extern_moment_callback(
       const geometry_msgs::Vector3Stamped::ConstPtr &m_ext);
   void addTag(int id, Eigen::Vector3f pose, flightlib::Quaternion quat);
-
+  sensor_msgs::PointCloud2 DepthImage_to_PCL(cv::Mat depth_image);
  protected:
 
   typedef struct _ControlInput
@@ -63,7 +66,6 @@ class QuadrotorSimulatorBase
   //std::shared_ptr<flightlib::Quadrotor> quad2_ptr_; // = std::make_shared<flightlib::Quadrotor>();
   flightlib::QuadState quad_state_;
   std::shared_ptr<flightlib::UnityBridge> unity_bridge_ptr_;
-  //std::shared_ptr<flightlib::RGBCamera>  rgb2_camera_;
 
  private:
   void stateToOdomMsg(const Quadrotor::State &state,
@@ -74,9 +76,12 @@ class QuadrotorSimulatorBase
   //bool connectUnity();
   
   ros::Publisher pub_odom_;
+  ros::Publisher pub_odom2_;
+
   ros::Publisher pub_imu_;
   ros::Publisher pub_output_data_;
   ros::Publisher pub_cam_info_;
+  ros::Publisher pub_pointcloud;
   image_transport::Publisher pub_cam_left_;
   image_transport::Publisher pub_cam_right_;
   ros::Subscriber sub_cmd_;
@@ -90,24 +95,27 @@ class QuadrotorSimulatorBase
   sensor_msgs::CameraInfo cam_info;
   bool unity_render_;
   bool base_setup_=false;
-
   std::shared_ptr<flightlib::RGBCamera>  rgb_l_camera_;
-  std::shared_ptr<flightlib::RGBCamera>  rgb_r_camera_;
 
 };
 
 template <typename T, typename U>
-QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
-  unity_render_(false),
-  rgb_l_camera_(new flightlib::RGBCamera()),
-  rgb_r_camera_(new flightlib::RGBCamera())
+QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n, std::shared_ptr<flightlib::RGBCamera> cam1):
+  unity_render_(false)
+ //rgb_l_camera_(new flightlib::RGBCamera()),
+  //rgb_r_camera_(new flightlib::RGBCamera())
   {
+  
+  ROS_WARN("Start make simulator.");  
   pub_odom_ = n.advertise<nav_msgs::Odometry>("odom", 100);
+  pub_odom2_ = n.advertise<nav_msgs::Odometry>("unity_odom", 100);
   pub_imu_ = n.advertise<sensor_msgs::Imu>("imu", 100);
   pub_cam_info_ = n.advertise<sensor_msgs::CameraInfo>("camera_info", 100);
+  pub_pointcloud = n.advertise<sensor_msgs::PointCloud2>("PointCloud2", 100);
+
   image_transport::ImageTransport it(n);
   image_transport::ImageTransport it2(n);
-  pub_cam_left_ = it.advertise("left_cam", 1);
+  pub_cam_left_ = it.advertise("unity_drone_cam", 1);
   pub_cam_right_ = it2.advertise("right_cam",1);
   pub_output_data_ = n.advertise<quadrotor_msgs::OutputData>("output_data", 100);
   sub_cmd_ = n.subscribe<T>("cmd", 100, &QuadrotorSimulatorBase::cmd_callback,
@@ -125,7 +133,7 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
 
   n.param("rate/odom", odom_rate_, 500.0);
 	odom_rate_ =500.0;
-  n.param("world_frame_id", world_frame_id_, std::string("simulator"));
+  n.param("world_frame_id", world_frame_id_, std::string("mocap"));
   n.param("quadrotor_name", quad_name_, std::string("quadrotor"));
 
   auto get_param = [&n](const std::string &param_name) {
@@ -184,19 +192,20 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   quad_ptr_ = std::make_shared<flightlib::Quadrotor>();
   ROS_INFO("Quadrotor created.");  
   quad_ptr_->reset(quad_state_);
+  //flightlib::RGBCamera cam1;
+  //std::shared_ptr<flightlib::RGBCamera>  rgb_l2_camera_ = std::make_shared<flightlib::RGBCamera>();
+  //std::shared_ptr<flightlib::RGBCamera>  rgb_r2_camera_ = std::make_shared<flightlib::RGBCamera>();
+  ROS_WARN("Camera made.");  
+  rgb_l_camera_ = cam1;
 
-  
-
-  //bring camera
-
-  flightlib::Vector<3> B_r_BC(1.0, 0.0, 0.0);
+  flightlib::Vector<3> B_r_BC(0.00, 0.0, -0.3);
   flightlib::Matrix<3, 3> R_BC;
   R_BC << 0.0,1.0,0.0,  -1.0,0.0,0.0,  0.0,0.0,1.0;
   rgb_l_camera_->setFOV(70);
   rgb_l_camera_->setWidth(640);
   rgb_l_camera_->setHeight(480);
   rgb_l_camera_->setRelPose(B_r_BC, R_BC);
-  rgb_l_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
+  rgb_l_camera_->setPostProcesscing(  std::vector<bool>{true, false, false});  // depth, segmentation, optical flow
   cam_info.height = rgb_l_camera_->getHeight();
   cam_info.width = rgb_l_camera_->getWidth();
   quad_ptr_->addRGBCamera(rgb_l_camera_); 
@@ -204,14 +213,7 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   double focal = 0.5*cam_info.height/tan(0.5*3.141* static_cast< double >(rgb_l_camera_->getFOV())/180);
   cam_info.K = {focal, 0, rgb_l_camera_->getWidth()*0.5, 0, focal, rgb_l_camera_->getHeight()*0.5, 0,0,1};
   cam_info.P = {focal, 0, rgb_l_camera_->getWidth()*0.5, 0, 0,focal, rgb_l_camera_->getHeight()*0.5, 0,0,0,1,0};
-  //Camera 2
-  flightlib::Vector<3> B2_r_BC(1.0, 1.0, 0.0);
-  rgb_r_camera_->setFOV(70);
-  rgb_r_camera_->setWidth(640);
-  rgb_r_camera_->setHeight(480);
-  rgb_r_camera_->setRelPose(B2_r_BC, R_BC);
-  rgb_r_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
-  quad_ptr_->addRGBCamera(rgb_r_camera_);    
+
   ROS_INFO("add Camera.");  
 
   //make RGB CAMERa
@@ -230,7 +232,37 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n):
   base_setup_ =true;
 }
 
+template <typename T, typename U>
+sensor_msgs::PointCloud2 QuadrotorSimulatorBase<T,U>::DepthImage_to_PCL(cv::Mat depth_image){
+  /*  Function: Get from a Mat to pcl pointcloud datatype
+  *  In: cv::Mat
+  *  Out: pcl::PointCloud
+  */
+  //char pr=100, pg=100, pb=100;
+  sensor_msgs::PointCloud cloud_;
+  sensor_msgs::PointCloud2 pcl;
+// calibration parameters
+    float  fx = cam_info.K[0];
+    float  fy = cam_info.K[0];
+    float  cx = cam_info.K[2];
+    float  cy = cam_info.K[5];
 
+    for (int i = 0; i<depth_image.rows; i+=2)
+    {
+        for (int j = 0; j < depth_image.cols; j+=2)
+        {
+          geometry_msgs::Point32 pt;
+          pt.z = depth_image.at<float>(i, j); 
+          pt.x = (double) ((j - cx) * pt.z / fx);
+          pt.y = (float) ((i - cy) * pt.z / fy);
+          cloud_.points.push_back(pt);
+        }
+    }
+    cloud_.header.frame_id = "left_stereo";
+    cloud_.header.stamp = ros::Time::now();
+    sensor_msgs::convertPointCloudToPointCloud2(cloud_, pcl);
+    return pcl;
+}
 
 // ID 0 is the main target
 template <typename T, typename U>
@@ -335,7 +367,7 @@ void QuadrotorSimulatorBase<T, U>::run(void)
       const Quadrotor::State &state = quad_.getState();
       stateToOdomMsg(state, odom_msg);
       odom_msg.header.stamp = tnow;
-      pub_odom_.publish(odom_msg);
+      //pub_odom_.publish(odom_msg);
       tfBroadcast(odom_msg);
       Eigen::Vector4f robot_odom;
       // update the robot state only if we are mirro r unite
@@ -373,27 +405,31 @@ void QuadrotorSimulatorBase<T, U>::run(void)
       quad_ptr_->setState(quad_state_);
       downsample_unity+=1;
       // Render next frame
-      if(downsample_unity==5){
-        cv::Mat img;
-
+      if(downsample_unity==50){
+        cv::Mat imgl, imgr, greyMat, img;
         unity_bridge_ptr_->getRender(0);
-        unity_bridge_ptr_->handleOutput();
+        bool output_handle = unity_bridge_ptr_->handleOutput();
+        //std::cout << " output handle " << tnow <<std::endl;
+        pub_odom_.publish(odom_msg);
+        //rgb_l_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
         downsample_unity = 0;
-        if(rgb_l_camera_->getRGBImage(img)){
-          sensor_msgs::ImagePtr rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
-          rgb_msg->header.stamp = tnow;
+        if(output_handle){
+        if(rgb_l_camera_->getRGBImage(imgl)){
+
+          pub_odom2_.publish(odom_msg);
+          cv::cvtColor(imgl, greyMat, cv::COLOR_BGR2GRAY);
+          sensor_msgs::ImagePtr rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", greyMat).toImageMsg();
+          rgb_msg->header.stamp = ros::Time::now();
           pub_cam_left_.publish(rgb_msg);   
-          cam_info.header.stamp = tnow;
+          cam_info.header.stamp = rgb_msg->header.stamp;
           pub_cam_info_.publish(cam_info);
+          rgb_l_camera_->getDepthMap(img);
+          pub_pointcloud.publish(DepthImage_to_PCL(img));   
         }
-        if(rgb_r_camera_->getRGBImage(img)){
-          sensor_msgs::ImagePtr rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
-          rgb_msg->header.stamp = tnow;
-          pub_cam_right_.publish(rgb_msg);   
         }
       }      
       quadToImuMsg(quad_, imu_msg);
-      imu_msg.header.stamp = tnow;
+      imu_msg.header.stamp = ros::Time::now();
       pub_imu_.publish(imu_msg);
       // Also publish an OutputData msg
       output_data_msg.header.stamp = tnow;
