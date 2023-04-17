@@ -22,11 +22,20 @@ sudo apt-get install terminator
 3. catkin build flightmare_simulator
 
 
-## Running
+## Running Ubuntu 20.04
 1. open the x86_64 file from the drive. NOT THE ONE FROM UZH.
 2. Make sure NVIDIA X Server is on (Performance Mode) if using GPU. Otherwise the Unity will NOT offload to GPU  !!!!
 3. run  roslaunch flightmare_simulator flightmare_sim.launch 
 Controls just like ARPL_Quadrotor_control
+
+## Running POP OS
+1. open a terminal vim ~/.bashrc
+```
+export __NV_PRIME_RENDER_OFFLOAD=1;
+export __GLX_VENDOR_LIBRARY_NAME=nvidia;
+```
+2. ./file_path_to_unity_build.x86_64
+
 
 ## Input/Output Topic
 ### Input Topic
@@ -35,6 +44,7 @@ Controls just like ARPL_Quadrotor_control
 * The Front Camera Images are published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/compressed
 * Camera Matrix Info is published to /quadrotor/quadrotor_simulator_so3/unity_drone_cam/camera_info 
 * Simulation is done in RVIZ and graphics are handled in Unity. Please realize that Unity ONLY HANDLES Graphics. 
+* Point Cloud
 
 ## Files of Note
 This is just a modified version of the simulator interface. quadrotor_simulator_base.hpp has all the Unity Mirroring and object spawning
