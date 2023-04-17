@@ -29,12 +29,18 @@ sudo apt-get install terminator
 Controls just like ARPL_Quadrotor_control
 
 ## Running POP OS
-1. open a terminal vim ~/.bashrc
+1. open a terminal 
 ```
+vim ~/.bashrc
 export __NV_PRIME_RENDER_OFFLOAD=1;
 export __GLX_VENDOR_LIBRARY_NAME=nvidia;
 ```
-2. ./file_path_to_unity_build.x86_64
+2. Save bashrc
+```
+source ~/.bashrc
+/path/to/flightmare.x86_64
+```
+
 
 
 ## Input/Output Topic
