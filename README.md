@@ -63,7 +63,7 @@ The packages available aren't there. Download and manually install .dev files fr
 sudo apt-get install libzmq3-dev
 https://pkgs.org/download/libzmqpp4
 
-## Known Bugs and Fixes
+## Known Bugs and Fixes (USE THE ARPL/flightlib repository ask for permission here)
 1. Flightmare random disconnnects. This is caused by the function in /flightmare/flightlib/src/bridges/unity_bridge.cpp as handleOutput()
 
 Replace Blocking message
