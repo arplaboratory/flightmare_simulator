@@ -1,39 +1,20 @@
+<?xml version="1.0"?>
 <launch>
   <arg name="model" default="quadrotor"/>
-  <arg name="sim" default="1"/>
-  <arg name="vicon" default="1"/>
-  <arg name="vicon_fps" default="100"/>
-  <arg name="slow_baud_rate" default="true"/>
-  <arg name="mass" default="0.5"/>
 
+  <arg name="mass" default="0.5"/>
   <arg name="start_nodelet_manager" default="true"/>
   <arg name="nodelet_manager_name" default="nodelet_manager_control"/>
-
-  <!-- Vicon odometry -->
-  <group if="$(arg vicon)">
-    <include file="$(find vicon)/launch/vicon.launch" unless="$(arg sim)"/>
-
-    <include file="$(find vicon_odom)/launch/vicon_odom.launch" unless="$(arg sim)">
-      <arg name="model" value="$(arg model)" />
-      <arg name="vicon_fps" value="$(arg vicon_fps)"/>
-    </include>
-  </group>
-
-
+  <arg name="platform_type"           default="hummingbird"/>
+  <arg name="world_frame_id" default="world"/>
+  <arg name="rate/odom" default="500"/>
+  <arg name="color/r" default="0.0"/>
+  <arg name="color/g" default="0.0"/>
+  <arg name="color/b" default="1.0"/>
+  <arg name="color/a" default="0.7"/>
 
   <group ns="$(arg model)">
     <param name="mass" value="$(arg mass)"/>
-
-    <!-- Simulator -->
-    <include file="$(find flightmare_simulator)/launch/sim.launch" if="$(arg sim)">
-      <arg name="name" value="$(arg model)"/>
-      <arg name="type" value="hummingbird"/>
-      <arg name="mass" value="$(arg mass)"/>
-      <arg name="color/r" value="0.0"/>
-      <arg name="color/g" value="0.0"/>
-      <arg name="color/b" value="1.0"/>
-      <arg name="color/a" value="0.7"/>
-    </include>
 
     <node pkg="nodelet"
       type="nodelet"
@@ -46,9 +27,9 @@
       name="trackers_manager"
       args="load trackers_manager/TrackersManager $(arg nodelet_manager_name)"
       output="screen">
-      <rosparam file="$(find arpl_autonomy)/config/arpl_sim/default/trackers.yaml"/>
-      <rosparam file="$(find arpl_autonomy)/config/arpl_sim/default/tracker_params.yaml"/>
-      <rosparam file="$(find arpl_autonomy)/config/arpl_sim/default/control_params.yaml"/>
+      <rosparam file="$(find arpl_autonomy)/config/$(arg platform_type)/default/trackers.yaml"/>
+      <rosparam file="$(find arpl_autonomy)/config/$(arg platform_type)/default/tracker_params.yaml"/>
+      <rosparam file="$(find arpl_autonomy)/config/$(arg platform_type)/default/so3_control_params.yaml"/>
       <remap from="~odom" to="odom"/>
       <remap from="~cmd" to="position_cmd"/>
     </node>
@@ -59,7 +40,7 @@
       name="so3_control"
       required="true"
       output="screen">
-      <rosparam file="$(find arpl_autonomy)/config/arpl_sim/default/control_params.yaml"/>
+      <rosparam file="$(find arpl_autonomy)/config/$(arg platform_type)/default/so3_control_params.yaml"/>
       <param name="mass" value="$(arg mass)"/>
       <remap from="~odom" to="odom"/>
       <remap from="~position_cmd" to="position_cmd"/>
@@ -73,9 +54,60 @@
       name="mav_services"
       clear_params="true"
       output="screen">
-      <rosparam file="$(find arpl_autonomy)/config/arpl_sim/default/mav_manager_params.yaml"/>
+      <rosparam file="$(find arpl_autonomy)/config/$(arg platform_type)/default/mav_manager_params.yaml"/>
+    </node>
+    
+ 
+  <node pkg="flightmare_simulator"
+    type="quadrotor_simulator_so3"
+    name="quadrotor_simulator_so3"
+    output="screen" >
+    <rosparam file="$(find arpl_autonomy)/config/simulator/$(arg platform_type)_params.yaml"/>
+    <!--APRILTAG CONFIGURATION FILE -->
+    <rosparam file="$(find arpl_autonomy)/config/simulator/aprilTag_config_perch.yaml"/>
+    <param name="world_frame_id" value="$(arg world_frame_id)"/>
+    <param name="quadrotor_name" value="$(arg model)"/>
+    <param name="rate/odom" value="$(arg rate/odom)"/>
+    <param name="mass" value="$(arg mass)"/>
+    <remap from="~odom" to="odom"/>
+    <remap from="~imu" to="imu"/>
+    <remap from="~cmd" to="so3_cmd"/>
+  </node>
+
+  <node pkg="mesh_visualization"
+    type="mesh_visualization"
+    name="mesh_visualization"
+    output="screen">
+    <param name="mesh_resource" value="package://mesh_visualization/mesh/hummingbird.mesh"/>
+    <param name="color/r" value="$(arg color/r)"/>
+    <param name="color/g" value="$(arg color/g)"/>
+    <param name="color/b" value="$(arg color/b)"/>
+    <param name="color/a" value="$(arg color/a)"/>
+    <remap from="~input" to="odom"/>
+  </node>
+  
+    <node pkg="apriltags_ros" type="apriltag_detector_node" name="apriltag_detector" output="screen">
+    <remap from="image_rect" to="/quadrotor/quadrotor_simulator_so3/unity_drone_cam" />
+    <remap from="camera_info" to="/quadrotor/quadrotor_simulator_so3/unity_drone_cam/camera_info" />
+    <param name="image_transport" type="str" value="compressed" />
+    <param name="tag_family" type="str" value="36h11" />
+    <param name="projected_optics" type="bool" value="true" />
+    <rosparam param="tag_descriptions">[
+      {id: 0, size: 0.4},
+      {id: 1, size: 0.4},
+      {id: 2, size: 0.4},
+      {id: 3, size: 0.4},
+      {id: 4, size: 0.4},
+      {id: 5, size: 0.4}
+]
+    </rosparam>
+  </node>
+    <node pkg="mesh_visualization" type="quadrotor_path_visualization" name="quadrotor_path_visualization" output="screen">
+        <param name="frame_name" type="str" value="$(arg world_frame_id)"/>     
+        <remap from="~odom" to="odom"/>
     </node>
   </group>
+  
 
   <!-- Waypoing Navigation -->
   <!-- include file="$(find mav_launch)/launch/waypoint_navigation_plugin/waypoint_rviz.launch"/-->

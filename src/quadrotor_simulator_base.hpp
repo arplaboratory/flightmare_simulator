@@ -96,7 +96,7 @@ class QuadrotorSimulatorBase
   bool unity_render_;
   bool base_setup_=false;
   std::shared_ptr<flightlib::RGBCamera>  rgb_l_camera_;
-
+  std::shared_ptr<flightlib::StaticObject> gate_;
 };
 
 template <typename T, typename U>
@@ -198,12 +198,12 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n, std::sh
   ROS_WARN("Camera made.");  
   rgb_l_camera_ = cam1;
 
-  flightlib::Vector<3> B_r_BC(0.00, 0.0, -0.3);
+  flightlib::Vector<3> B_r_BC(0.0, 0.0, -0.5);
   flightlib::Matrix<3, 3> R_BC;
   R_BC << 0.0,1.0,0.0,  -1.0,0.0,0.0,  0.0,0.0,1.0;
   rgb_l_camera_->setFOV(70);
-  rgb_l_camera_->setWidth(640);
-  rgb_l_camera_->setHeight(480);
+  rgb_l_camera_->setWidth(480);
+  rgb_l_camera_->setHeight(320);
   rgb_l_camera_->setRelPose(B_r_BC, R_BC);
   rgb_l_camera_->setPostProcesscing(  std::vector<bool>{true, false, false});  // depth, segmentation, optical flow
   cam_info.height = rgb_l_camera_->getHeight();
@@ -271,12 +271,12 @@ void QuadrotorSimulatorBase<T,U>::addTag(int id, Eigen::Vector3f pose, flightlib
     const std::string box_wooden = "cube_box";
     std::string box_name = box_wooden+std::to_string(id);
     std::string apriltag_name = stub+std::to_string(id);
-    std::shared_ptr<flightlib::StaticObject> gate =  std::make_shared<flightlib::StaticObject>(apriltag_name, apriltag_name);
-    gate->setPosition(pose);
+    gate_ =  std::make_shared<flightlib::StaticObject>(apriltag_name, apriltag_name);
+    gate_->setPosition(pose);
     const float scale = 0.050; //Make the tags bigger
-    gate->setSize(Eigen::Vector3f(scale , scale*1.25, scale));
-    gate->setQuaternion(quat);
-    unity_bridge_ptr_->addStaticObject(gate);
+    gate_->setSize(Eigen::Vector3f(scale , scale*1.25, scale));
+    gate_->setQuaternion(quat);
+    unity_bridge_ptr_->addStaticObject(gate_);
     std::shared_ptr<flightlib::StaticObject> box_gate =  std::make_shared<flightlib::StaticObject>(box_name, box_wooden);
     Eigen::Vector3f box_pose = pose;
     box_pose(2) = pose(2)*0.5-scale*6;
@@ -306,6 +306,7 @@ void QuadrotorSimulatorBase<T,U>::addTag(int id, Eigen::Vector3f pose, flightlib
       gate2->setQuaternion(flightlib::Quaternion(quat_fixed));
       unity_bridge_ptr_->addStaticObject(gate2);
     }
+    
 }
 
 Eigen::Vector4f mul(Eigen::Vector4f q1,Eigen::Vector4f q2) {
@@ -335,11 +336,11 @@ void QuadrotorSimulatorBase<T, U>::run(void)
   nav_msgs::Odometry odom_msg;
   sensor_msgs::Imu imu_msg;
   quadrotor_msgs::OutputData output_data_msg;
-  odom_msg.header.frame_id = world_frame_id_;
+  odom_msg.header.frame_id = "world";
   odom_msg.child_frame_id = quad_name_;
   imu_msg.header.frame_id = quad_name_;
   output_data_msg.header.frame_id = quad_name_;
-
+  static int count = 0;
   const double simulation_dt = 1 / simulation_rate_;
   ros::Rate r(simulation_rate_);
 
@@ -371,7 +372,7 @@ void QuadrotorSimulatorBase<T, U>::run(void)
       tfBroadcast(odom_msg);
       Eigen::Vector4f robot_odom;
       // update the robot state only if we are mirro r unite
-      if(true){
+      if(mirrorUnity){
         //Static quaternion
         Eigen::Vector4f quat_staic;
         quat_staic[1]=0.0;
@@ -405,18 +406,21 @@ void QuadrotorSimulatorBase<T, U>::run(void)
       quad_ptr_->setState(quad_state_);
       downsample_unity+=1;
       // Render next frame
-      if(downsample_unity==50){
+      pub_odom_.publish(odom_msg);
+      pub_odom2_.publish(odom_msg);
+      if(downsample_unity==25){
         cv::Mat imgl, imgr, greyMat, img;
         unity_bridge_ptr_->getRender(0);
         bool output_handle = unity_bridge_ptr_->handleOutput();
         //std::cout << " output handle " << tnow <<std::endl;
-        pub_odom_.publish(odom_msg);
         //rgb_l_camera_->setPostProcesscing(  std::vector<bool>{false, false, false});  // depth, segmentation, optical flow
         downsample_unity = 0;
         if(output_handle){
         if(rgb_l_camera_->getRGBImage(imgl)){
-
-          pub_odom2_.publish(odom_msg);
+          //count +=1;
+          Eigen::Vector3f pose;
+          //pose << count*0.3, 0, 0;
+          //gate_->setPosition(pose);
           cv::cvtColor(imgl, greyMat, cv::COLOR_BGR2GRAY);
           sensor_msgs::ImagePtr rgb_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", greyMat).toImageMsg();
           rgb_msg->header.stamp = ros::Time::now();
@@ -425,6 +429,9 @@ void QuadrotorSimulatorBase<T, U>::run(void)
           pub_cam_info_.publish(cam_info);
           rgb_l_camera_->getDepthMap(img);
           pub_pointcloud.publish(DepthImage_to_PCL(img));   
+          //if(count ==20){
+          // count = 0;
+          //}
         }
         }
       }      
