@@ -4,6 +4,11 @@ This is an interface that connects ARPL Quadrotor Simulator with the Flightmare 
 
 ## Prerequisites
 * Install ARPL_Quadrotor_control https://github.com/arplaboratory/arpl_quadrotor_control (ASK PROF. LOIANNO FOR PERMISSION FIRST BEFORE ACCESSING!!!)
+* Install libraries
+  ```
+  sudo dpkg -i /path/to/flightmare_simulator/Ubuntu_2204_libs/libzmqpp-dev_4.1.2-0ubuntu2_amd64.deb
+  sudo dpkg -i /path/to/flightmare_simulator/Ubuntu_2204_libs/libzmqpp4_4.1.2-0ubuntu2_amd64.deb
+  ```
 * Install Flightlib_ros: https://flightmare.readthedocs.io/en/latest/getting_started/quick_start.html#install-with-ros
 * Download the ARPL Specific Unity build Repo (Note: we have our special version Unity game builds are too big for Github):https://drive.google.com/drive/folders/112k4-5et8ZBVgw8d-tvBS8-Xlhh1nVJN?usp=sharing
 * Terminator - 
@@ -57,11 +62,6 @@ This is just a modified version of the simulator interface. quadrotor_simulator_
 
 ## Future Options
 Ability to control Apriltag spawn in .yaml file. 
-
-#UBUNTU 22.04 PROBLEMS!!!!
-The packages available aren't there. Download and manually install .dev files from these repositories
-sudo apt-get install libzmq3-dev
-https://pkgs.org/download/libzmqpp4
 
 ## Known Bugs and Fixes (USE THE ARPL/flightlib repository ask for permission here)
 1. Flightmare random disconnnects. This is caused by the function in /flightmare/flightlib/src/bridges/unity_bridge.cpp as handleOutput()
