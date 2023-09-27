@@ -201,7 +201,7 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n, std::sh
   flightlib::Vector<3> B_r_BC(0.0, 0.0, -0.5);
   flightlib::Matrix<3, 3> R_BC;
   R_BC << 0.0,1.0,0.0,  -1.0,0.0,0.0,  0.0,0.0,1.0;
-  rgb_l_camera_->setFOV(70);
+  rgb_l_camera_->setFOV(90);
   rgb_l_camera_->setWidth(480);
   rgb_l_camera_->setHeight(320);
   rgb_l_camera_->setRelPose(B_r_BC, R_BC);
