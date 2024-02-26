@@ -674,55 +674,11 @@ void QuadrotorSimulatorBase<T, U>::tfBroadcast(
 
    //The frame Base Link and camera link are perfectly aligned in the realsense case 
    camera_link_to_base_link.transform.rotation = quat_base_link_camera_link;
-  
-
-   //The left_stereo frame related to the pointcloud obtained from the disparity nodelet required two rotations to be aligned with the base_link or camer_link.
-   //Considering the Base Link frame aligned to the odom frame (generally before the take off) 
-   //its easy to see that The stereo_left needs to be rotated of -90° around the y axis of base link.
-  float theta_roll = 0.0;
-  float alfa_pitch = -1.5708;
-  float yaw = 0.0;
-  Eigen:: Matrix4f Ry;
-   Ry << cos(alfa_pitch), 0, sin(alfa_pitch), 0,
-      0, 1, 0, 0,
-      -sin(alfa_pitch), 0, cos(alfa_pitch), 0,
-      0, 0, 0, 1;
-
-    
-    //Define a second rotation of 90 degrees around the x axis of the world frame 
-   theta_roll = 1.5708;
- 
-    Eigen:: Matrix4f Rx;
-   Rx << 1, 0, 0, 0,
-      0, cos(theta_roll), -sin(theta_roll), 0,
-      0, sin(theta_roll), cos(theta_roll), 0,
-      0, 0, 0, 1;
-
-  
-  yaw = -1.5708;
-  Eigen::Matrix4f Rz;
-  Rz << cos(yaw), -sin(yaw), 0, 0,
-      sin(yaw), cos(yaw), 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1;
-
-    Eigen::Matrix4f R_stereo_left_to_base_link;
-
-    R_stereo_left_to_base_link = Rz*Rx;//Rx*Ry;
-    //the final rotation is defined as a composition of rotations 
-    tf::Matrix3x3 mf;
-    // mf = m_x * m_y;
-    mf.setValue(static_cast<double>(R_stereo_left_to_base_link(0,0)), static_cast<double>(R_stereo_left_to_base_link(0,1)), static_cast<double>(R_stereo_left_to_base_link(0,2)), 
-        static_cast<double>(R_stereo_left_to_base_link(1,0)), static_cast<double>(R_stereo_left_to_base_link(1,1)), static_cast<double>(R_stereo_left_to_base_link(1,2)), 
-        static_cast<double>(R_stereo_left_to_base_link(2,0)), static_cast<double>(R_stereo_left_to_base_link(2,1)), static_cast<double>(R_stereo_left_to_base_link(2,2)));
-
-    //Obtain the quaternion related to te rotation materix
-    tf::Quaternion q;
-    mf.getRotation(q);
-    quat.x = q.getX();
-    quat.y = q.getY();
-    quat.z = -1*q.getZ();
-    quat.w = -1*q.getW(); 
+    //Quaternion camera to base_link rotation 
+    quat.x = -0.5;
+    quat.y = 0.5;
+    quat.z = -0.5;
+    quat.w = 0.5; 
    
   // geometry_msgs::Quaternion quat_;
   //  quat_.w = 1.0; 
