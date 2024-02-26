@@ -97,7 +97,7 @@ class QuadrotorSimulatorBase
   std::string quad_name_;
   std::string pc_ns;
   std::string world_frame_id_;
-  tf2_ros::TransformBroadcaster tf_broadcaster_;
+
   sensor_msgs::CameraInfo cam_info;
   bool unity_render_;
   bool base_setup_=false;
@@ -107,11 +107,13 @@ class QuadrotorSimulatorBase
 
   Eigen::Vector3f position_init_for_tf;
   Eigen::Vector3f quat_init_for_tf;
-  tf::TransformBroadcaster from_base_link_to_odom;
-  tf::TransformBroadcaster from_camera_link_to_base_link;
-  tf::TransformBroadcaster from_camera_disparity_link_to_camera_link;
-  tf::TransformBroadcaster from_world_to_map;
-  tf::TransformBroadcaster from_map_to_odom;
+  
+  tf2_ros::TransformBroadcaster tf_broadcaster_; 
+  tf2_ros::TransformBroadcaster from_base_link_to_odom;
+  tf2_ros::TransformBroadcaster from_camera_link_to_base_link;
+  tf2_ros::TransformBroadcaster from_camera_disparity_link_to_camera_link;
+  tf2_ros::TransformBroadcaster from_world_to_map;
+  tf2_ros::TransformBroadcaster from_map_to_odom;
 };
 
 template <typename T, typename U>
@@ -719,8 +721,8 @@ void QuadrotorSimulatorBase<T, U>::tfBroadcast(
     mf.getRotation(q);
     quat.x = q.getX();
     quat.y = q.getY();
-    quat.z = q.getZ();
-    quat.w = q.getW(); 
+    quat.z = -1*q.getZ();
+    quat.w = -1*q.getW(); 
    
   // geometry_msgs::Quaternion quat_;
   //  quat_.w = 1.0; 
