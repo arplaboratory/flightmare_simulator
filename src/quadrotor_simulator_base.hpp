@@ -22,6 +22,7 @@
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/point_cloud_conversion.h>
+#include "tf/transform_broadcaster.h"
 
 namespace QuadrotorSimulator
 {
@@ -94,13 +95,23 @@ class QuadrotorSimulatorBase
   double simulation_rate_;
   double odom_rate_;
   std::string quad_name_;
+  std::string pc_ns;
   std::string world_frame_id_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
   sensor_msgs::CameraInfo cam_info;
   bool unity_render_;
   bool base_setup_=false;
+  bool flag_init_tf = true;
   std::shared_ptr<flightlib::RGBCamera>  rgb_l_camera_;
   std::shared_ptr<flightlib::StaticObject> gate_;
+
+  Eigen::Vector3f position_init_for_tf;
+  Eigen::Vector3f quat_init_for_tf;
+  tf::TransformBroadcaster from_base_link_to_odom;
+  tf::TransformBroadcaster from_camera_link_to_base_link;
+  tf::TransformBroadcaster from_camera_disparity_link_to_camera_link;
+  tf::TransformBroadcaster from_world_to_map;
+  tf::TransformBroadcaster from_map_to_odom;
 };
 
 template <typename T, typename U>
@@ -139,6 +150,7 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n, std::sh
 	odom_rate_ =500.0;    
   n.param("world_frame_id", world_frame_id_, std::string("mocap"));
   n.param("quadrotor_name", quad_name_, std::string("quadrotor"));
+  n.getParam("pc_ns", pc_ns);
 
   auto get_param = [&n](const std::string &param_name) {
     double param;
@@ -209,7 +221,19 @@ QuadrotorSimulatorBase<T, U>::QuadrotorSimulatorBase(ros::NodeHandle &n, std::sh
   rgb_l_camera_->setWidth(480);
   rgb_l_camera_->setHeight(320);
   rgb_l_camera_->setRelPose(B_r_BC, R_BC);
-  
+    rgb_l_camera_->setPostProcesscing(  std::vector<bool>{true, false, false});  // depth, segmentation, optical flow
+  cam_info.height = rgb_l_camera_->getHeight();
+  cam_info.width = rgb_l_camera_->getWidth();
+  quad_ptr_->addRGBCamera(rgb_l_camera_); 
+  cam_info.distortion_model = "plumb_bob";
+  double focal = 0.5*cam_info.height/tan(0.5*3.141* static_cast< double >(rgb_l_camera_->getFOV())/180);
+  cam_info.K = {focal, 0, rgb_l_camera_->getWidth()*0.5, 0, focal, rgb_l_camera_->getHeight()*0.5, 0,0,1};
+  cam_info.P = {focal, 0, rgb_l_camera_->getWidth()*0.5, 0, 0,focal, rgb_l_camera_->getHeight()*0.5, 0,0,0,1,0};
+
+  ROS_INFO("add Camera.");  
+
+  //make RGB CAMERa
+    ROS_INFO("Camera parameter made."); 
    ROS_INFO("Before Unity Bridge is created.");  
 
   unity_bridge_ptr_ = flightlib::UnityBridge::getInstance();
@@ -229,13 +253,14 @@ sensor_msgs::PointCloud2 QuadrotorSimulatorBase<T,U>::DepthImage_to_PCL(cv::Mat 
   *  In: cv::Mat
   *  Out: pcl::PointCloud
   */
+  //char pr=100, pg=100, pb=100;
   sensor_msgs::PointCloud cloud_;
   sensor_msgs::PointCloud2 pcl;
+// calibration parameters
     float  fx = cam_info.K[0];
     float  fy = cam_info.K[0];
     float  cx = cam_info.K[2];
-    float  cy = cam_info.K[5];  
-
+    float  cy = cam_info.K[5];
 
     for (int i = 0; i<depth_image.rows; i+=2)
     {
@@ -352,12 +377,13 @@ void QuadrotorSimulatorBase<T, U>::run(void)
 
     if((tnow >= next_odom_pub_time) )
     {
-
       next_odom_pub_time += odom_pub_duration;
       const Quadrotor::State &state = quad_.getState();
       stateToOdomMsg(state, odom_msg);
       odom_msg.header.stamp = tnow;
+      odom_msg.header.frame_id = "world";
       pose_msg_.header.stamp = tnow;
+      pose_msg_.header.frame_id = "world";
       pose_msg_.pose = odom_msg.pose.pose;
       pub_pose_.publish(pose_msg_);
       pub_odom_.publish(odom_msg);
@@ -408,7 +434,6 @@ void QuadrotorSimulatorBase<T, U>::run(void)
         if(output_handle){
           if(rgb_l_camera_->getRGBImage(imgl)){
             //count +=1;
-              std::cout << " output handle " << tnow <<std::endl;
             Eigen::Vector3f pose;
             //pose << count*0.3, 0, 0;
             //gate_->setPosition(pose);
@@ -422,13 +447,17 @@ void QuadrotorSimulatorBase<T, U>::run(void)
             sensor_msgs::ImagePtr depth_msg =
               cv_bridge::CvImage(std_msgs::Header(), "32FC1", img).toImageMsg();
             depth_msg->header.stamp = tnow;
+            depth_msg->header.frame_id = "left_stereo";
             pub_cam_right_.publish(depth_msg);
-            //pub_pointcloud.publish(DepthImage_to_PCL(img));   
-          }
+          //pub_pointcloud.publish(DepthImage_to_PCL(img));   
+          //if(count ==20){
+          // count = 0;
+          //}
+        }
         }
       }      
       quadToImuMsg(quad_, imu_msg);
-      imu_msg.header.stamp = tnow;
+      imu_msg.header.stamp = ros::Time::now();
       pub_imu_.publish(imu_msg);
       // Also publish an OutputData msg
       output_data_msg.header.stamp = tnow;
@@ -446,7 +475,6 @@ void QuadrotorSimulatorBase<T, U>::run(void)
   }
 }
 
-
 template <typename T, typename U>
 void QuadrotorSimulatorBase<T, U>::extern_force_callback(
     const geometry_msgs::Vector3Stamped::ConstPtr &f_ext)
@@ -462,6 +490,7 @@ void QuadrotorSimulatorBase<T, U>::extern_moment_callback(
   quad_.setExternalMoment(
       Eigen::Vector3d(m_ext->vector.x, m_ext->vector.y, m_ext->vector.z));
 }
+
 
 template <typename T, typename U>
 void QuadrotorSimulatorBase<T, U>::stateToOdomMsg(
@@ -511,7 +540,7 @@ void QuadrotorSimulatorBase<T, U>::quadToImuMsg(const Quadrotor &quad,
   {
     acc = state.R.transpose() * (external_force / m + Eigen::Vector3d(0, 0, g));
   }
-  else
+  else  
   {
     acc = thrust / m * Eigen::Vector3d(0, 0, 1) +
           state.R.transpose() * external_force / m;
@@ -549,7 +578,160 @@ void QuadrotorSimulatorBase<T, U>::tfBroadcast(
   ts.transform.rotation = odom_msg.pose.pose.orientation;
 
   tf_broadcaster_.sendTransform(ts);
-}
+  //MAP Broadcaster added 
+  ros::Time current_time_tf, last_time_tf;
+  current_time_tf = ros::Time::now();
+  last_time_tf = ros::Time::now();
+
+  geometry_msgs::Quaternion quat;
+  quat.w = 1.0; 
+  geometry_msgs::Quaternion quat_init;
+  quat_init.w = 1.0; 
+   
+  //Vicon Case 
+    geometry_msgs::TransformStamped world_to_map;
+    geometry_msgs::TransformStamped map_to_odom;
+    world_to_map.header.stamp = current_time_tf;
+    map_to_odom.header.stamp = current_time_tf;
+
+    world_to_map.header.frame_id = "world";
+    world_to_map.child_frame_id = pc_ns+"/"+"map";
+    
+    map_to_odom.header.frame_id = pc_ns+"/"+"map";
+    map_to_odom.child_frame_id = "mocap";  //Change the frame from mocap to simulator depending if we are using the Vicon or the simuator
+   
+    
+   if (flag_init_tf)
+   {
+    position_init_for_tf << odom_msg.pose.pose.position.x, odom_msg.pose.pose.position.y, odom_msg.pose.pose.position.z;
+    quat_init_for_tf << odom_msg.pose.pose.orientation.x, odom_msg.pose.pose.orientation.y, odom_msg.pose.pose.orientation.z, odom_msg.pose.pose.orientation.w;
+    quat_init.x = quat_init_for_tf(0);
+    quat_init.y = quat_init_for_tf(1);
+    quat_init.z = quat_init_for_tf(2);
+    quat_init.w = quat_init_for_tf(3);
+    flag_init_tf = false;
+   }
+   world_to_map.transform.translation.x = 0.0;
+   world_to_map.transform.translation.y = 0.0;
+   //Z_offset added 
+   world_to_map.transform.translation.z = -0.5;
+   
+   map_to_odom.transform.translation.x = 0.0; //position_init_for_tf(0);
+   map_to_odom.transform.translation.y = 0.0; //position_init_for_tf(1);
+   map_to_odom.transform.translation.z = 0.0; //position_init_for_tf(2);
+
+   world_to_map.transform.rotation = quat;
+   map_to_odom.transform.rotation = quat;
+   
+   from_world_to_map.sendTransform(world_to_map);
+   from_map_to_odom.sendTransform(map_to_odom);
+
+
+  //Base_link to camera broadcast!!!  
+  quat.w = 1.0; 
+
+  geometry_msgs::Quaternion quat_base_link_camera_link;
+  quat_base_link_camera_link.w = 1.0; 
+     
+    geometry_msgs::TransformStamped base_link_to_odom;
+    geometry_msgs::TransformStamped camera_link_to_base_link;
+    geometry_msgs::TransformStamped camera_disparity_link_to_camera_link; //Tf tree from the disparity nodelet and camera_left frame
+
+    base_link_to_odom.header.stamp = current_time_tf;
+    camera_link_to_base_link.header.stamp= current_time_tf;
+    camera_disparity_link_to_camera_link.header.stamp = current_time_tf;
+    
+    base_link_to_odom.header.frame_id = "odom";
+    base_link_to_odom.child_frame_id = "base_link"; //drone31/cam1_link
+
+    camera_link_to_base_link.header.frame_id = "base_link";
+    camera_link_to_base_link.child_frame_id = "camera_link";
+
+    
+    camera_disparity_link_to_camera_link.header.frame_id = "camera_link";
+    camera_disparity_link_to_camera_link.child_frame_id = "left_stereo"; 
+    
+    //Translation odom to camera frame (both realsenbse and left_camera)
+   base_link_to_odom.transform.translation.x = odom_msg.pose.pose.position.x;
+   base_link_to_odom.transform.translation.y = odom_msg.pose.pose.position.y;
+   base_link_to_odom.transform.translation.z = odom_msg.pose.pose.position.z;
+
+
+   //Translation from base link to camera link (rigidly attached)
+   camera_link_to_base_link.transform.translation.x = 0.0;
+   camera_link_to_base_link.transform.translation.y = 0.0;
+   camera_link_to_base_link.transform.translation.z = 0.0;
+
+   
+   //The left_camera frame is rigidly attached to the camera frame (rigidly attached)
+   camera_disparity_link_to_camera_link.transform.translation.x = 0.0;
+   camera_disparity_link_to_camera_link.transform.translation.y = 0.0;
+   camera_disparity_link_to_camera_link.transform.translation.z = 0.0;
+
+   base_link_to_odom.transform.rotation = odom_msg.pose.pose.orientation;
+
+   //The frame Base Link and camera link are perfectly aligned in the realsense case 
+   camera_link_to_base_link.transform.rotation = quat_base_link_camera_link;
+  
+
+   //The left_stereo frame related to the pointcloud obtained from the disparity nodelet required two rotations to be aligned with the base_link or camer_link.
+   //Considering the Base Link frame aligned to the odom frame (generally before the take off) 
+   //its easy to see that The stereo_left needs to be rotated of -90° around the y axis of base link.
+  float theta_roll = 0.0;
+  float alfa_pitch = -1.5708;
+  float yaw = 0.0;
+  Eigen:: Matrix4f Ry;
+   Ry << cos(alfa_pitch), 0, sin(alfa_pitch), 0,
+      0, 1, 0, 0,
+      -sin(alfa_pitch), 0, cos(alfa_pitch), 0,
+      0, 0, 0, 1;
+
+    
+    //Define a second rotation of 90 degrees around the x axis of the world frame 
+   theta_roll = 1.5708;
+ 
+    Eigen:: Matrix4f Rx;
+   Rx << 1, 0, 0, 0,
+      0, cos(theta_roll), -sin(theta_roll), 0,
+      0, sin(theta_roll), cos(theta_roll), 0,
+      0, 0, 0, 1;
+
+  
+  yaw = -1.5708;
+  Eigen::Matrix4f Rz;
+  Rz << cos(yaw), -sin(yaw), 0, 0,
+      sin(yaw), cos(yaw), 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1;
+
+    Eigen::Matrix4f R_stereo_left_to_base_link;
+
+    R_stereo_left_to_base_link = Rz*Rx;//Rx*Ry;
+    //the final rotation is defined as a composition of rotations 
+    tf::Matrix3x3 mf;
+    // mf = m_x * m_y;
+    mf.setValue(static_cast<double>(R_stereo_left_to_base_link(0,0)), static_cast<double>(R_stereo_left_to_base_link(0,1)), static_cast<double>(R_stereo_left_to_base_link(0,2)), 
+        static_cast<double>(R_stereo_left_to_base_link(1,0)), static_cast<double>(R_stereo_left_to_base_link(1,1)), static_cast<double>(R_stereo_left_to_base_link(1,2)), 
+        static_cast<double>(R_stereo_left_to_base_link(2,0)), static_cast<double>(R_stereo_left_to_base_link(2,1)), static_cast<double>(R_stereo_left_to_base_link(2,2)));
+
+    //Obtain the quaternion related to te rotation materix
+    tf::Quaternion q;
+    mf.getRotation(q);
+    quat.x = q.getX();
+    quat.y = q.getY();
+    quat.z = q.getZ();
+    quat.w = q.getW(); 
+   
+  // geometry_msgs::Quaternion quat_;
+  //  quat_.w = 1.0; 
+   camera_disparity_link_to_camera_link.transform.rotation = quat;//quat;
+
+   from_base_link_to_odom.sendTransform(base_link_to_odom);
+   from_camera_link_to_base_link.sendTransform(camera_link_to_base_link);
+   from_camera_disparity_link_to_camera_link.sendTransform(camera_disparity_link_to_camera_link);
+
+  }
+
 }
 
 #endif

@@ -9,7 +9,7 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
 
 
-find_package(catkin REQUIRED COMPONENTS roscpp quadrotor_msgs nav_msgs sensor_msgs flightlib tf2_ros image_transport pcl_conversions)
+find_package(catkin REQUIRED COMPONENTS roscpp quadrotor_msgs nav_msgs sensor_msgs flightlib tf tf2_ros image_transport pcl_conversions)
 find_package(Eigen3 REQUIRED)
 find_package(catkin_simple)
 
@@ -20,7 +20,7 @@ include_directories(include ${EIGEN3_INCLUDE_DIR} ${catkin_INCLUDE_DIRS} ${zmqq_
 catkin_package(
   INCLUDE_DIRS
   LIBRARIES
-  CATKIN_DEPENDS roscpp quadrotor_msgs nav_msgs sensor_msgs tf2_ros  flightlib image_transport  
+  CATKIN_DEPENDS roscpp quadrotor_msgs nav_msgs sensor_msgs tf2_ros tf flightlib image_transport  
   DEPENDS EIGEN3)
 
 add_library(flightmare_quadrotor_dynamics src/dynamics/Quadrotor.cpp)
